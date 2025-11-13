@@ -49,6 +49,9 @@
 \newfloatcommand{capbtabboxFigure}{figure}[][\FBwidth]
 \newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
 
+% 脚注样式 ①②③
+\usepackage[perpage]{footmisc} % 加载 footmisc 宏包并设置 perpage 选项
+\renewcommand{\thefootnote}{\textcircled{\arabic{footnote}}} % 重新定义脚注编号格式
 
 \newtheorem{definition}{定义}[] % 跟随三级标题排序
 \newtheorem{theorem}{定理}[]  %跟随二级标题排序
