@@ -75,7 +75,7 @@
 >year={1996},
 >}
 
-- **脚注问题** 请参考Issues#8  @**[modest-Hamilton](https://github.com/modest-Hamilton)** 用户的解决措施，问题不会关闭[脚注的问题 · Issue #8 · Ftine/SZU_Latex_Master_Template (github.com)](https://github.com/Ftine/SZU_Latex_Master_Template/issues/8)
+- **脚注问题** 已参考 https://github.com/Ftine/SZU_Latex_Master_Template/issues/8 将脚注调整为①②③样式。
 
 - **参考文献问题**会议和期刊卷码`volume`格式存在不统一、以及存在期刊名称大小写不一致问题，可以手动修改。
 
