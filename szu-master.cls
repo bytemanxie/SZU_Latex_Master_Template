@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2007/10/19]
-\ProvidesClass{szu2024}
+\ProvidesClass{szu-master}
 [2024/04/01 v1 Thesis Template for SZU Postgraduate]
 \LoadClass[cs4size,12pt,a4paper,fntef,UTF8]{ctexart}[2024/4/1]
 % 源代码地址： https://github.com/Ftine/SZU_Latex_Master_Template 

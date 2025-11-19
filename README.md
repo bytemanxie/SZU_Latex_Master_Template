@@ -42,9 +42,9 @@
 
 ### 2024-4-1重大更新
 
->**对标题和目录字体进行修改，`gbt7714-2005.bst`,`szu2024.cls`、`master_pang.tex`文件有较大更改** 
+>**对标题和目录字体进行修改，`gbt7714-2005.bst`,`szu-master.cls`、`master_pang.tex`文件有较大更改** 
 >
->- 建议直接复制替换 szu2024.cls文件
+>- 建议直接复制替换 szu-master.cls 文件
 >- 建议直接复制替换 master_pang.tex 文件
 >- 下载和替换 gbt7714-2005.bst
 >- 下载 songti-Bold.otf 文件
