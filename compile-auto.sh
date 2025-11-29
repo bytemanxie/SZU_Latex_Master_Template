@@ -43,6 +43,12 @@ if [ $? -eq 0 ]; then
             open master_pang.pdf
         fi
     fi
+    
+    # 编译成功后自动清理临时文件（符合 Overleaf 使用习惯）
+    echo ""
+    echo "正在清理临时文件..."
+    rm -f *.aux *.bbl *.blg *.log *.out *.toc *.lof *.lot *.fls *.fdb_latexmk *.synctex.gz *.xdv
+    echo "✓ 临时文件已清理"
 else
     echo ""
     echo "❌ 编译失败！请检查错误信息。"

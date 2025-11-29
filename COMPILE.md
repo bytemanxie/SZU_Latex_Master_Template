@@ -2,28 +2,26 @@
 
 ## 🚀 One-Click Compilation (Recommended)
 
-### Method 1: Auto Compile Script (Easiest)
+### Auto Compile Script
 
 ```bash
 ./compile-auto.sh
 ```
 
-**Advantages:**
+**Features:**
 - Automatically detects required compilation rounds
 - Automatically processes bibliography
 - Automatically updates cross-references
+- **Automatically cleans temporary files after successful compilation** (Overleaf-style)
 - Only need to run once
 
-### Method 2: Standard Compile Script
+**What it does:**
+1. Compiles the thesis using `latexmk` (handles all necessary compilation rounds)
+2. Generates `master_pang.pdf`
+3. **Automatically removes temporary files** (`.aux`, `.bbl`, `.blg`, `.log`, `.out`, `.toc`, `.lof`, `.lot`, `.fls`, `.fdb_latexmk`, `.synctex.gz`, `.xdv`)
+4. Optionally opens the PDF
 
-```bash
-./compile.sh
-```
-
-**Description:**
-- Automatically executes all compilation steps (xelatex → bibtex → xelatex → xelatex)
-- Shows compilation progress
-- Optionally opens PDF after compilation
+> **Note:** Temporary files are only cleaned when compilation succeeds. If compilation fails, temporary files are preserved for debugging.
 
 ## 📝 Manual Compilation (Not Recommended)
 
@@ -43,9 +41,9 @@ xelatex master_pang.tex
 xelatex master_pang.tex
 ```
 
-## 🧹 Clean Temporary Files
+## 🧹 Clean Temporary Files (Optional)
 
-Compilation generates many temporary files (.aux, .log, .bbl, etc.), run:
+The auto compile script automatically cleans temporary files. If you need to clean manually:
 
 ```bash
 ./clean.sh
@@ -53,9 +51,9 @@ Compilation generates many temporary files (.aux, .log, .bbl, etc.), run:
 
 ## 💡 Usage Tips
 
-1. **After each modification**: Just run `./compile-auto.sh`
+1. **After each modification**: Just run `./compile-auto.sh` - it handles everything automatically
 2. **View PDF**: Script will ask if you want to open PDF automatically
-3. **Clean files**: Run clean script before committing to keep directory tidy
+3. **Clean workspace**: Temporary files are automatically cleaned after successful compilation (like Overleaf)
 
 ## ⚠️ Notes
 
