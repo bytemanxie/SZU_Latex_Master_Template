@@ -1,34 +1,36 @@
 \begin{abstractCN}
 \setlength{\baselineskip}{23pt} %设置行距23磅
 
+光学相干断层扫描（OCT）图像语义分割在激光焊接熔池检测等工业应用中具有重要意义。传统的语义分割方法在处理OCT图像时存在全局上下文信息捕获不足和局部细节信息丢失的问题，导致分割精度不高。针对上述问题，本文提出了一种基于改进DeepLabV3+的OCT图像语义分割方法。
 
-研究生生活是一段充满智慧和探索的旅程。在这个阶段，学生们接触到更深层次的学术内容，面对更具挑战性的问题，并在学术界展开独立研究。研究生院的学术氛围让学生们有机会深入研究他们感兴趣的领域，与导师和同行们共同探讨和解决复杂的问题。
+本文在对DeepLabV3+模型的改进中，针对OCT图像分割任务中全局上下文信息捕获不足和局部细节信息丢失两大核心问题，提出了系统性的改进方案。在原模型的特征提取部分，采用ResNet18-V1c作为骨干网络，提取多尺度特征。在ASPP模块后，针对传统卷积难以建模长距离空间依赖的问题，引入TR（Transformer Routing）全局注意力模块。TR模块采用双层路由注意力机制，首先将ASPP输出的32×32特征图按照4×4窗口大小进行分割，得到64个窗口；然后通过区域级路由计算窗口间的相似度，对每个窗口选择Top-4个最相关的窗口进行注意力计算；最后在选定的窗口内进行令牌级注意力计算，建立长距离依赖关系。这种TopK路由机制将计算复杂度从O(n²)降低至O(n²×k/p²)，约减少75\%的计算量，在保持全局上下文建模能力的同时提高了计算效率。在解码器特征融合后，针对低级特征与高级语义特征融合时空间位置信息丢失和通道权重分配不合理的问题，引入SAE（Spatial Attention Enhancement）局部注意力模块。SAE模块首先通过坐标注意力机制，对输入特征图在高度和宽度方向分别进行池化，生成空间注意力权重，增强重要空间位置的特征表示；然后通过4分支的通道注意力机制，对全局平均池化后的特征进行多分支全连接处理，生成通道注意力权重，增强重要通道的特征表示；最终通过元素级相乘将两种注意力权重应用到特征图上，实现空间和通道维度的双重增强，提高边界分割精度。此外，针对OCT图像中目标像素与背景像素分布不均衡的问题，采用交叉熵损失和Dice损失的加权组合损失函数，有效处理类别不平衡问题。
 
-除了学术挑战，研究生生活也涵盖了更广泛的社交和职业发展。学生们与来自不同背景和领域的同学共同学习，建立起深厚的人际关系。同时，与导师的交流和合作为学生们提供了更广泛的职业发展机会，帮助他们在未来的职业生涯中更好地发展。
+实验在包含912张训练图像和228张测试图像的OCT图像数据集上进行。实验结果表明，本文方法在测试集上取得了优异的性能表现，整体mIoU达到0.911，相比基线模型DeepLabV3+提升了7.1\%，目标类别的IoU提升了16.3\%。消融实验表明，SAE模块和TR模块具有协同效应，双重注意力机制的性能提升超过单独使用任一模块的效果。与现有方法相比，本文方法在分割精度上具有明显优势，同时保持了良好的计算效率。
 
-在研究生院，学生们有机会参与各种学术和社会活动，拓展他们的视野。这包括学术研讨会、专题讲座、学术合作项目等。通过这些活动，他们能够更全面地了解自己的专业领域，并与其他研究者建立联系。
-
+实验结果表明，本文提出的双重注意力机制有效提升了OCT图像语义分割的精度，在激光焊接熔池检测等应用中具有良好的实用价值。
 
 \end{abstractCN}
 
 
 \begin{keywordCN}
-xx分析；xx学习
+语义分割；DeepLabV3+；注意力机制；OCT图像；激光焊接
 \end{keywordCN}
 
 \begin{abstractEN}
 \setlength{\baselineskip}{23pt} %设置行距23磅
 
-Graduate life is a journey filled with wisdom and exploration. During this stage, students delve into more profound academic content, face more challenging problems, and embark on independent research within the academic community. The academic atmosphere in graduate school provides students with opportunities to deeply explore their areas of interest, engaging in discussions and solving complex problems collaboratively with mentors and peers.
+Optical Coherence Tomography (OCT) image semantic segmentation is of great significance in industrial applications such as laser welding pool detection. Traditional semantic segmentation methods suffer from insufficient global context information capture and loss of local detail information when processing OCT images, resulting in low segmentation accuracy. To address these problems, this paper proposes an OCT image semantic segmentation method based on improved DeepLabV3+.
 
-Beyond academic challenges, graduate life encompasses a broader spectrum of social and professional development. Students learn from and connect with peers from diverse backgrounds and fields, fostering profound interpersonal relationships. Simultaneously, interactions and collaborations with mentors open up broader opportunities for professional development, aiding students in shaping their future careers more effectively.
+In the improvement of the DeepLabV3+ model, this paper proposes systematic improvements to address two core challenges in OCT image segmentation: insufficient global context information capture and loss of local detail information. For the feature extraction component, ResNet18-V1c is adopted as the backbone network to extract multi-scale features. After the ASPP module, to address the problem that traditional convolutions struggle to model long-range spatial dependencies, a TR (Transformer Routing) global attention module is introduced. The TR module adopts a bi-level routing attention mechanism: first, the 32×32 feature map output from ASPP is divided into 4×4 windows, resulting in 64 windows; then, window-level similarity is computed through regional routing, and for each window, the Top-4 most relevant windows are selected for attention computation; finally, token-level attention is computed within the selected windows to establish long-range dependencies. This TopK routing mechanism reduces computational complexity from O(n²) to O(n²×k/p²), approximately reducing 75\% of computation, maintaining global context modeling capability while improving computational efficiency. After decoder feature fusion, to address the problems of spatial location information loss and unreasonable channel weight allocation during the fusion of low-level and high-level semantic features, an SAE (Spatial Attention Enhancement) local attention module is introduced. The SAE module first uses coordinate attention to pool the input feature map in height and width directions respectively, generating spatial attention weights to enhance features at important spatial locations; then uses a 4-branch channel attention mechanism to process globally average-pooled features through multi-branch fully connected layers, generating channel attention weights to enhance important channels; finally applies both attention weights to the feature map through element-wise multiplication, achieving dual enhancement in both spatial and channel dimensions and improving boundary segmentation accuracy. Additionally, to address the pixel imbalance between target and background pixels in OCT images, a weighted combination of cross-entropy loss and Dice loss is adopted to effectively handle class imbalance.
 
-In graduate school, students have the chance to participate in various academic and social activities, broadening their horizons. This includes academic seminars, special lectures, collaborative research projects, and more. Through these activities, they gain a comprehensive understanding of their respective fields and establish connections with other researchers.
+Experiments are conducted on an OCT image dataset containing 912 training images and 228 test images. Experimental results show that the proposed method achieves excellent performance on the test set, with overall mIoU reaching 0.911, an improvement of 7.1\% compared to the baseline DeepLabV3+ model, and target class IoU improving by 16.3\%. Ablation experiments demonstrate that the SAE and TR modules have synergistic effects, with the dual attention mechanism achieving performance improvements exceeding those of using either module alone. Compared with existing methods, the proposed method has obvious advantages in segmentation accuracy while maintaining good computational efficiency.
+
+Experimental results demonstrate that the proposed dual attention mechanism effectively improves the accuracy of OCT image semantic segmentation and has good practical value in applications such as laser welding pool detection.
 
 \end{abstractEN}
 
 \begin{keywordEN}
-xx Analysis; xx Learning
+Semantic Segmentation; DeepLabV3+; Attention Mechanism; OCT Image; Laser Welding
 \end{keywordEN}
 
 
@@ -39,8 +41,13 @@ xx Analysis; xx Learning
  % 调整表格宽度
 \renewcommand\arraystretch{1.5}
 \begin{tabular}{l@{\hspace{4em}}l}
-VAE & 变分自编码器（Variational Auto-Encoder） \\
-CNN & 卷积神经网络（Convolutional Neural Network） \\
+OCT & 光学相干断层扫描（Optical Coherence Tomography） \\
+ASPP & 空洞空间金字塔池化（Atrous Spatial Pyramid Pooling） \\
+TR & 变换器路由（Transformer Routing） \\
+SAE & 空间注意力增强（Spatial Attention Enhancement） \\
+mIoU & 平均交并比（Mean Intersection over Union） \\
+mAcc & 平均准确率（Mean Accuracy） \\
+HD95 & 豪斯多夫距离95\%分位数（95th Percentile Hausdorff Distance） \\
 \end{tabular}
 \end{adjustwidth}
 
