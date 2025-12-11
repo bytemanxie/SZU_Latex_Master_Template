@@ -1,0 +1,71 @@
+---
+description: Cursor 规则文件组织说明
+alwaysApply: true
+---
+
+# Cursor 规则文件组织说明
+
+本目录包含用于指导 Cursor AI 写作的规则文件，采用多文件管理方式，便于维护和更新。
+
+## 文件结构
+
+```
+.cursor/
+├── README.mdc                    # 本文件，说明规则文件组织方式
+└── rules/
+    ├── project-introduce.mdc   # 项目介绍和参考信息
+    ├── project-info.mdc        # 项目技术信息（模型架构、数据集、训练配置）
+    ├── experiment-data.mdc     # 实验数据和结果（性能指标、对比实验、消融实验）
+    └── writing-templates.mdc  # 论文写作模板（方法描述、实验结果描述模板）
+```
+
+## 文件说明
+
+### project-introduce.mdc
+包含项目基本信息和参考论文列表。
+
+### project-info.mdc
+包含项目的技术细节：
+- 模型架构详细说明（DeepLabV3+ + TR + SAE）
+- 数据集信息
+- 训练配置
+- 创新点说明
+
+### experiment-data.mdc
+包含所有实验数据：
+- 最佳模型性能指标
+- 与对比方法的性能对比数据
+- 消融实验结果
+- 性能提升分析
+
+### writing-templates.mdc
+包含论文写作模板：
+- 方法描述模板（如何描述TR模块、SAE模块）
+- 实验结果描述模板（如何描述性能指标）
+- 对比实验描述模板
+- 消融实验描述模板
+
+## 使用方式
+
+主规则文件 `.cursorrules` 会自动引用这些文件中的信息。当需要更新项目信息时，只需修改对应的规则文件即可。
+
+## 注意事项
+
+1. 所有技术描述必须与项目代码保持一致
+2. 实验数据必须与实验报告一致
+3. 保持文件格式统一，规则文件使用 `.mdc` 格式（Markdown with frontmatter）
+4. 定期更新，确保信息准确性
+
+## 文件格式说明
+
+所有规则文件使用 `.mdc` 格式，包含 YAML frontmatter：
+
+```yaml
+---
+description: 文件描述
+alwaysApply: true/false
+---
+```
+
+- `description`: 文件的简短描述
+- `alwaysApply`: 是否总是应用此规则（true）或仅在相关上下文中应用（false）
