@@ -1,13 +1,11 @@
 \begin{abstractCN}
 \setlength{\baselineskip}{23pt} %设置行距23磅
 
-光学相干断层扫描（OCT）图像语义分割是激光焊接熔池检测等工业视觉任务中的关键环节。受散斑噪声、边界模糊及目标与背景对比不足等因素影响，常规卷积分割模型易出现全局语义理解不足与局部边界刻画不精的现象。针对上述问题，本文提出一种基于改进DeepLabV3+的OCT图像语义分割方法。
+光学相干断层扫描（OCT）图像语义分割是激光焊接熔池检测等工业视觉任务中的关键环节。受散斑噪声、边界模糊以及目标与背景对比不足等因素影响，基于卷积的分割模型在复杂工况下易出现全局语义理解不足与边界刻画不精的问题，从而限制分割结果的稳定性与工程可用性。针对上述问题，本文提出一种基于改进DeepLabV3+的OCT图像语义分割方法。
 
-该方法以DeepLabV3+为基础框架，结合多尺度上下文聚合与注意力建模：在ASPP输出后引入TR（Transformer Routing）模块以增强全局上下文表达，提升对长程依赖与整体结构的刻画能力；在解码器高低层特征融合后引入SAE（Spatial Attention Enhancement）模块以强化局部细节与边界信息表征；同时采用交叉熵损失与Dice损失的组合以缓解类别不平衡带来的训练偏置。
+本文方法以DeepLabV3+为基础框架，在多尺度上下文聚合的基础上引入全局与局部两类注意力建模机制。具体而言，在ASPP输出后嵌入TR（Transformer Routing）模块，通过路由式注意力在可控计算开销下增强长程依赖建模能力，以提升对目标整体结构与上下文关系的表征；在解码器高低层特征融合后引入SAE（Spatial Attention Enhancement）模块，通过空间与通道的联合增强强化关键区域响应与边界细节表达，从而改善细长结构与模糊边界处的分割质量。此外，采用交叉熵损失与Dice损失的组合以缓解类别不平衡带来的训练偏置。
 
-本文工作的主要贡献体现在：面向OCT图像分割“全局语义不足—局部边界不清”的矛盾，在统一的编码器—解码器框架内协同引入全局与局部注意力机制，使网络在保持多尺度表征能力的同时进一步强化对关键区域与边界的判别；并通过损失函数设计提升对小目标与类别不平衡场景的适应性，从而提高分割结果的稳定性与可用性。
-
-在包含912张训练图像与228张测试图像的OCT数据集上，所提方法取得mIoU为0.911，较基线DeepLabV3+提升7.1\%，目标类别IoU提升16.3\%。实验结果表明，所提出方法能够兼顾全局语义理解与局部边界刻画，为OCT图像的高精度分割与工程应用提供有效支撑。
+在包含912张训练图像与228张测试图像的OCT数据集上进行实验验证。结果显示，所提方法的mIoU达到0.911，较基线DeepLabV3+提升7.1\%。上述结果表明，TR与SAE的联合引入能够在统一的编码器—解码器框架内兼顾全局语义建模与局部细节增强，为OCT图像的高精度语义分割提供一种有效实现途径。
 
 \end{abstractCN}
 
@@ -19,13 +17,11 @@
 \begin{abstractEN}
 \setlength{\baselineskip}{23pt} %设置行距23磅
 
-Optical Coherence Tomography (OCT) image semantic segmentation is a critical component in industrial vision applications such as laser welding molten pool inspection. Due to speckle noise, blurred boundaries, and weak contrast between the target and background, conventional convolutional segmentation models often suffer from limited global context understanding and inaccurate boundary delineation. To address these challenges, we propose an improved DeepLabV3+-based method for OCT image semantic segmentation.
+Optical Coherence Tomography (OCT) image semantic segmentation is a key component in industrial vision tasks such as laser welding molten pool inspection. In practical scenarios, speckle noise, blurred boundaries, and weak target--background contrast often lead convolution-based segmentation models to suffer from insufficient global context understanding and inaccurate boundary delineation, thereby limiting robustness and practical usability. To address these issues, this thesis proposes an improved DeepLabV3+-based method for OCT image semantic segmentation.
 
-Built upon the DeepLabV3+ encoder--decoder architecture, the proposed approach integrates attention modeling to balance global semantics and local details. Specifically, a TR (Transformer Routing) module is introduced after ASPP to enhance global context representation and long-range dependency modeling, while an SAE (Spatial Attention Enhancement) module is applied after decoder feature fusion to strengthen local detail and boundary-aware features. In addition, a hybrid loss combining cross-entropy and Dice loss is adopted to mitigate class imbalance during training.
+Built upon the DeepLabV3+ encoder--decoder architecture, the proposed approach introduces both global and local attention modeling on top of multi-scale context aggregation. Specifically, a TR (Transformer Routing) module is inserted after ASPP to enhance long-range dependency modeling and global context representation under controllable computational cost via routing-based attention. In addition, an SAE (Spatial Attention Enhancement) module is applied after decoder feature fusion to strengthen local details and boundary-aware representations through joint spatial and channel enhancement. A hybrid loss combining cross-entropy and Dice loss is further adopted to mitigate training bias caused by class imbalance.
 
-The main contributions are three-fold: (1) a unified enhancement scheme that jointly improves global semantic understanding and local boundary characterization for OCT images by combining global and local attention in a single encoder--decoder framework; (2) improved robustness to challenging cases such as small target regions and severe class imbalance via a hybrid loss; and (3) a practical segmentation solution that is readily applicable to high-precision industrial inspection scenarios.
-
-Experiments on an OCT dataset with 912 training images and 228 test images demonstrate that the proposed method achieves an mIoU of 0.911, outperforming the baseline DeepLabV3+ by 7.1\%, with the target-class IoU improved by 16.3\%. These results indicate that the proposed method effectively improves OCT segmentation performance and provides practical value for high-precision industrial inspection.
+Experiments on an OCT dataset with 912 training images and 228 test images demonstrate that the proposed method achieves an mIoU of 0.911, outperforming the baseline DeepLabV3+ by 7.1\%. The results indicate that the joint integration of TR and SAE can balance global semantic modeling and local boundary enhancement within a unified encoder--decoder framework, providing an effective solution for high-precision OCT image segmentation in practical industrial scenarios.
 
 \end{abstractEN}
 

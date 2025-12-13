@@ -35,13 +35,6 @@ if [ $? -eq 0 ]; then
         PDF_SIZE=$(ls -lh master_pang.pdf | awk '{print $5}')
         echo "生成的 PDF 文件：master_pang.pdf"
         echo "文件大小：$PDF_SIZE"
-        echo ""
-        echo "是否打开 PDF？(y/n)"
-        read -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            open master_pang.pdf
-        fi
     fi
     
     # 编译成功后自动清理临时文件（符合 Overleaf 使用习惯）
