@@ -33,62 +33,62 @@ alwaysApply: false
 ┌─────────────────────────────┐
 │ 编码器 (Encoder)             │
 │ ResNet18-V1c 骨干网络        │
-│ - Stage 1: 256×256×64        │
-│ - Stage 2: 128×128×128       │
-│ - Stage 3: 64×64×256         │
-│ - Stage 4: 32×32×512         │
+│ - Stage 1: 128×128×64        │
+│ - Stage 2: 64×64×128         │
+│ - Stage 3: 32×32×256         │
+│ - Stage 4: 16×16×512         │
 └─────────────────────────────┘
     ↓ [取 Stage 4 特征]
-32×32×512
+16×16×512
     ↓
 ┌─────────────────────────────┐
 │ ASPP模块                     │
 │ 5个并行分支：                │
-│ - 1×1卷积: 32×32×512         │
-│ - dilation=12: 32×32×512     │
-│ - dilation=24: 32×32×512     │
-│ - dilation=36: 32×32×512     │
-│ - 全局池化: 32×32×512        │
-│ 拼接: 32×32×2560             │
+│ - 1×1卷积: 16×16×512         │
+│ - dilation=12: 16×16×512     │
+│ - dilation=24: 16×16×512     │
+│ - dilation=36: 16×16×512     │
+│ - 全局池化: 16×16×512        │
+│ 拼接: 16×16×2560             │
 └─────────────────────────────┘
     ↓
-32×32×2560
+16×16×2560
     ↓
 ┌─────────────────────────────┐
 │ TR模块 (BiformerBlock)       │
 │ 双层路由注意力机制           │
-│ 输入: 32×32×2560             │
-│ 输出: 32×32×2560             │
+│ 输入: 16×16×2560             │
+│ 输出: 16×16×2560             │
 └─────────────────────────────┘
     ↓
-32×32×2560
+16×16×2560
     ↓ [1×1卷积降维]
-32×32×512
-    ↓ [上采样×2]
-64×64×512
+16×16×512
+    ↓ [上采样×8]
+128×128×512
     ↓ [与Stage 1特征融合]
 ┌─────────────────────────────┐
 │ 解码器 (Decoder)             │
-│ Stage 1特征: 256×256×64      │
-│ 降维: 64×64×48               │
-│ 拼接: 64×64×560              │
+│ Stage 1特征: 128×128×64      │
+│ 降维: 128×128×48             │
+│ 拼接: 128×128×560            │
 └─────────────────────────────┘
     ↓
-64×64×560
+128×128×560
     ↓
 ┌─────────────────────────────┐
 │ SAE模块 (CoordSaeLayer)      │
 │ 坐标注意力 + 通道注意力       │
-│ 输入: 64×64×560              │
-│ 输出: 64×64×560              │
+│ 输入: 128×128×560            │
+│ 输出: 128×128×560            │
 └─────────────────────────────┘
     ↓
-64×64×560
+128×128×560
     ↓ [深度可分离卷积]
-64×64×512
+128×128×512
     ↓ [分类头]
-64×64×2
-    ↓ [上采样×8]
+128×128×2
+    ↓ [上采样×4]
 512×512×2
 ```
 
@@ -103,10 +103,10 @@ alwaysApply: false
 
 **特征图尺寸变化**：
 - **输入**: 512×512×3
-- **Stage 1输出**: 256×256×64 (stride=2)
-- **Stage 2输出**: 128×128×128 (stride=2)
-- **Stage 3输出**: 64×64×256 (stride=2)
-- **Stage 4输出**: 32×32×512 (stride=2) ← 用于ASPP
+- **Stage 1输出**: 128×128×64（ResNetV1c包含DeepStem+maxpool，整体下采样到1/4）
+- **Stage 2输出**: 64×64×128 (stride=2)
+- **Stage 3输出**: 32×32×256 (stride=2)
+- **Stage 4输出**: 16×16×512 (stride=2) ← 用于ASPP
 
 **关键设计**：
 - 使用 `contract_dilation=True` 避免网格伪影
@@ -129,8 +129,8 @@ alwaysApply: false
 5. **全局平均池化**: 感受野为整个特征图，捕获全局上下文
 
 **输出特征**：
-- 5个分支拼接：32×32×2560 (512×5)
-- 通过1×1卷积降维：32×32×512
+- 5个分支拼接：16×16×2560 (512×5)
+- 通过1×1卷积降维：16×16×512
 
 **深度可分离卷积**：
 - 使用深度可分离卷积降低计算复杂度
@@ -143,13 +143,13 @@ alwaysApply: false
 **核心机制**: 双层路由注意力（Bi-Level Routing Attention）
 
 **输入输出**：
-- **输入**: 32×32×2560（ASPP输出）
-- **输出**: 32×32×2560（注意力增强后的特征）
+- **输入**: 16×16×2560（ASPP输出）
+- **输出**: 16×16×2560（注意力增强后的特征）
 
 **窗口划分**：
 - **特征图尺寸**: 32×32
 - **窗口大小**: 4×4
-- **窗口数量**: (32/4) × (32/4) = 8×8 = **64个窗口**
+- **窗口数量**: (16/4) × (16/4) = 4×4 = **16个窗口**
 
 **TopK路由机制**：
 - **TopK值**: k=4（每个窗口选择4个最相关的窗口）
@@ -192,8 +192,8 @@ TopK路由: TopK_Indices = TopK(Routing_Score, k=4)
 **核心机制**: 坐标注意力 + 通道注意力（Squeeze-and-Excitation）
 
 **输入输出**：
-- **输入**: 64×64×560（Decoder融合后的特征）
-- **输出**: 64×64×560（增强后的特征）
+- **输入**: 128×128×560（Decoder融合后的特征）
+- **输出**: 128×128×560（增强后的特征）
 
 **结构组成**：
 
@@ -213,7 +213,7 @@ TopK路由: TopK_Indices = TopK(Routing_Score, k=4)
    - 残差连接
 
 3. **通道注意力（SaELayer）**：
-   - **全局平均池化**: 64×64×560 → 560
+   - **全局平均池化**: 128×128×560 → 560
    - **4分支处理**: 
      - 4个全连接层分支，每个分支输出140维
      - 拼接后得到560维
@@ -236,11 +236,11 @@ TopK路由: TopK_Indices = TopK(Routing_Score, k=4)
 ### 解码器
 
 **特征融合**：
-- **高层特征**: 32×32×512（ASPP+TR输出，上采样到64×64）
+- **高层特征**: 16×16×512（ASPP+TR后经bottleneck降维，上采样到128×128）
 - **低层特征**: 256×256×64（Stage 1输出）
   - 通过1×1卷积降维: 64×64×48
 - **融合方式**: 通道维度拼接
-- **融合后**: 64×64×560 (512+48)
+- **融合后**: 128×128×560 (512+48)
 
 **上采样**：
 - 使用双线性插值（bilinear interpolation）
@@ -405,6 +405,70 @@ lr = base_lr × (1 - iter/max_iter)^power
 - Dice损失关注区域重叠
 - 有效处理类别不平衡问题
 
+## 论文引用映射（建议写法）
+
+> 目的：把“网络分块→对应论文→写作时如何引用”固定下来，避免第三章写作时引用错位或口径不一致。
+
+### 网络分块与引用对应
+
+1. **DeepLabv3+ 编码器-解码器骨架 + ASPP（多尺度上下文聚合）**
+   - **写作落点**：作为本文方法的基础框架（Encoder–Decoder + ASPP）。
+   - **建议引用**：DeepLabv3+ 原论文（Encoder-Decoder with Atrous Separable Convolution）。
+   - **链接**：`https://arxiv.org/pdf/1802.02611`
+
+2. **TR 模块：全局上下文增强（BiformerBlock / Bi-Level Routing Attention）**
+   - **写作落点**：位于 **ASPP 输出之后**；通过 Bi-Level Routing Attention + Top-K 路由稀疏注意力建模长程依赖，并控制注意力计算开销。
+   - **建议引用**：BiFormer（Vision Transformer with Bi-Level Routing Attention）。
+   - **链接**：`https://openaccess.thecvf.com/content/CVPR2023/papers/Zhu_BiFormer_Vision_Transformer_With_Bi-Level_Routing_Attention_CVPR_2023_paper.pdf`
+
+3. **SAE 模块：局部细节/边界增强（CoordSaeLayer）**
+   - **写作落点**：位于 **解码器高低层特征融合之后**；用于强化边界与局部细节表征。
+   - **内部引用拆分（推荐写法）**：
+     - **CoordAtt（坐标注意力）部分**：强调 H/W 方向编码的空间位置信息建模能力。
+       - **建议引用**：Coordinate Attention for Efficient Mobile Network Design（CVPR 2021）。
+       - **链接**：`https://openaccess.thecvf.com/content/CVPR2021/papers/Hou_Coordinate_Attention_for_Efficient_Mobile_Network_Design_CVPR_2021_paper.pdf`
+     - **通道注意力（SE风格）部分**：通道重标定，突出判别性通道响应。
+       - **建议引用**：Squeeze-and-Excitation Networks（CVPR 2018）。
+       - **链接**：`https://arxiv.org/pdf/1709.01507`
+
+> 备注：ResNet 相关引用（如 ResNet 原论文）可放在“骨干网络”介绍处；本小节优先固定你已确认的 4 篇核心引用。
+
+### BibTeX（占位，可后续替换为你学校模板要求格式）
+
+```bibtex
+@article{chen2018deeplabv3plus,
+  title   = {Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation},
+  author  = {Chen, Liang-Chieh and Zhu, Yukun and Papandreou, George and Schroff, Florian and Adam, Hartwig},
+  journal = {arXiv preprint arXiv:1802.02611},
+  year    = {2018},
+  url     = {https://arxiv.org/pdf/1802.02611}
+}
+
+@inproceedings{zhu2023biformer,
+  title     = {BiFormer: Vision Transformer with Bi-Level Routing Attention},
+  author    = {Zhu, TODO and others},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2023},
+  url       = {https://openaccess.thecvf.com/content/CVPR2023/papers/Zhu_BiFormer_Vision_Transformer_With_Bi-Level_Routing_Attention_CVPR_2023_paper.pdf}
+}
+
+@inproceedings{hou2021coordatt,
+  title     = {Coordinate Attention for Efficient Mobile Network Design},
+  author    = {Hou, Qibin and Zhou, Daquan and Feng, Jiashi},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2021},
+  url       = {https://openaccess.thecvf.com/content/CVPR2021/papers/Hou_Coordinate_Attention_for_Efficient_Mobile_Network_Design_CVPR_2021_paper.pdf}
+}
+
+@inproceedings{hu2018senet,
+  title     = {Squeeze-and-Excitation Networks},
+  author    = {Hu, Jie and Shen, Li and Sun, Gang},
+  booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2018},
+  url       = {https://arxiv.org/pdf/1709.01507}
+}
+```
+
 ## 技术细节
 
 ### 特征图尺寸变化
@@ -412,20 +476,20 @@ lr = base_lr × (1 - iter/max_iter)^power
 | 阶段 | 操作 | 输入尺寸 | 输出尺寸 | 说明 |
 |------|------|----------|----------|------|
 | 输入 | 原始图像 | 512×512×3 | - | RGB图像 |
-| ResNet Stage1 | 卷积+下采样 | 512×512×3 | 256×256×64 | stride=2 |
-| ResNet Stage2 | 卷积+下采样 | 256×256×64 | 128×128×128 | stride=2 |
-| ResNet Stage3 | 卷积+下采样 | 128×128×128 | 64×64×256 | stride=2 |
-| ResNet Stage4 | 卷积+下采样 | 64×64×256 | 32×32×512 | stride=2 |
-| ASPP拼接 | 多分支拼接 | 5×32×32×512 | 32×32×2560 | 5个分支 |
-| TR模块 | 注意力增强 | 32×32×2560 | 32×32×2560 | 全局上下文 |
-| Bottleneck | 1×1卷积 | 32×32×2560 | 32×32×512 | 降维 |
-| 上采样 | 双线性插值 | 32×32×512 | 64×64×512 | ×2上采样 |
-| c1_bottleneck | 1×1卷积 | 256×256×64 | 64×64×48 | 下采样+降维 |
-| 特征拼接 | torch.cat | 64×64×(512+48) | 64×64×560 | 融合高低层 |
-| SAE模块 | 特征增强 | 64×64×560 | 64×64×560 | 局部增强 |
-| Sep Bottleneck | 深度可分离卷积 | 64×64×560 | 64×64×512 | 降维+融合 |
-| 分类头 | 1×1卷积 | 64×64×512 | 64×64×2 | 类别logits |
-| 最终上采样 | 双线性插值 | 64×64×2 | 512×512×2 | ×8上采样 |
+| ResNet Stage1 | stem+maxpool+layer1 | 512×512×3 | 128×128×64 | 下采样到1/4 |
+| ResNet Stage2 | 卷积+下采样 | 128×128×64 | 64×64×128 | stride=2 |
+| ResNet Stage3 | 卷积+下采样 | 64×64×128 | 32×32×256 | stride=2 |
+| ResNet Stage4 | 卷积+下采样 | 32×32×256 | 16×16×512 | stride=2 |
+| ASPP拼接 | 多分支拼接 | 5×16×16×512 | 16×16×2560 | 5个分支 |
+| TR模块 | 注意力增强 | 16×16×2560 | 16×16×2560 | 全局上下文 |
+| Bottleneck | 1×1卷积 | 16×16×2560 | 16×16×512 | 降维 |
+| 上采样 | 双线性插值 | 16×16×512 | 128×128×512 | ×8上采样 |
+| c1_bottleneck | 1×1卷积 | 128×128×64 | 128×128×48 | 降维 |
+| 特征拼接 | torch.cat | 128×128×(512+48) | 128×128×560 | 融合高低层 |
+| SAE模块 | 特征增强 | 128×128×560 | 128×128×560 | 局部增强 |
+| Sep Bottleneck | 深度可分离卷积 | 128×128×560 | 128×128×512 | 降维+融合 |
+| 分类头 | 1×1卷积 | 128×128×512 | 128×128×2 | 类别logits |
+| 最终上采样 | 双线性插值 | 128×128×2 | 512×512×2 | ×4上采样 |
 
 ### 关键参数
 
@@ -438,7 +502,7 @@ lr = base_lr × (1 - iter/max_iter)^power
 - 输入维度 = 2560
 - 窗口大小 = 4×4
 - TopK = 4
-- 窗口数量 = 64 (8×8)
+- 窗口数量 = 16 (4×4)
 
 **SAE模块**：
 - 输入输出维度 = 560
@@ -455,17 +519,17 @@ lr = base_lr × (1 - iter/max_iter)^power
 
 1. **特征图尺寸错误**：
    - ❌ 专利中描述：ASPP输出16×16×2560，TR模块处理16×16特征图得到16个窗口
-   - ✅ 实际代码：ASPP输出32×32×2560，TR模块处理32×32特征图得到64个窗口（8×8）
+   - ✅ 实际代码：ASPP输出16×16×2560，TR模块处理16×16特征图得到16个窗口（4×4）
 
 2. **窗口数量错误**：
    - ❌ 专利中描述：16×16特征图分割为4×4窗口得到16个窗口
-   - ✅ 实际代码：32×32特征图分割为4×4窗口得到64个窗口
+   - ✅ 实际代码：16×16特征图分割为4×4窗口得到16个窗口
 
 3. **Stage 4输出尺寸**：
    - ❌ 专利中描述：第四阶段输出16×16×512
-   - ✅ 实际代码：第四阶段输出32×32×512
+   - ✅ 实际代码：第四阶段输出16×16×512
 
-**注意**：在论文写作时，应使用正确的技术描述（32×32特征图，64个窗口）。
+**注意**：在论文写作时，应使用正确的技术描述（16×16特征图，16个窗口；融合尺度为128×128，最终上采样×4）。
 
 ## 代码位置
 
