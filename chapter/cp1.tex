@@ -31,14 +31,16 @@
 
 针对激光焊接 OCT 图像中存在的散斑噪声干扰严重、锁孔目标细小且边界模糊等问题，本文以实现高精度、鲁棒的锁孔语义分割为目标，开展了一系列研究工作。本文的主要研究内容如下：
 
-\begin{enumerate}
+\begin{enumerate}[label=\arabic*., leftmargin=*, itemsep=0.4\baselineskip, topsep=0.2\baselineskip]
     \item \textbf{构建了面向激光焊接锁孔检测的 OCT 图像语义分割数据集。} 针对现有开源数据集缺乏此类工业场景数据的问题，本文收集了真实的 304 不锈钢激光焊接 OCT 成像数据，制定了统一的标注规范，完成了像素级的精细标注。数据集涵盖了不同焊接工艺参数下的多种锁孔形态，为模型训练与评估提供了坚实的数据基础。
 
-    \item \textbf{提出了一种基于改进 DeepLabV3+ 的 OCT 图像语义分割网络。} 针对 DeepLabV3+ 模型在处理 OCT 图像时存在的全局上下文信息利用不足和局部细节丢失问题，本文在编码器-解码器架构的基础上进行了双重改进：
-    \begin{itemize}
+    \item \textbf{提出了一种基于改进 DeepLabV3+ 的 OCT 图像语义分割网络。}
+    
+    \hspace{2em}针对 DeepLabV3+ 模型在处理 OCT 图像时存在的全局上下文信息利用不足和局部细节丢失问题，本文在编码器-解码器架构的基础上进行了双重改进：
+    \begin{enumerate}[label=（\arabic*）, leftmargin=3em, itemsep=0.2\baselineskip, topsep=0.2\baselineskip]
         \item 在编码器末端引入\textbf{TR（Transformer Routing）模块}。借鉴 Transformer 全局建模思想，在编码器高层特征上引入基于路由稀疏注意力的全局上下文增强，以提升长程依赖建模能力并降低无关区域干扰\upcite{zhu2023biformervisiontransformerbilevel,TransUNet2021}。
         \item 在解码器融合阶段引入\textbf{SAE（Spatial Attention Enhancement）模块}。在高低层特征融合后引入空间与通道注意力协同增强，突出边缘与细小结构的特征响应，提升弱边界条件下的分割精细度\upcite{hou2021coordinateattentionefficientmobile,hu2019squeezeandexcitationnetworks}。
-    \end{itemize}
+    \end{enumerate}
 
     \item \textbf{设计了适应类别不平衡的混合损失函数与训练策略。} 针对 OCT 图像中背景区域广大而锁孔目标区域较小（前景背景比例失衡）的问题，采用交叉熵损失（Cross Entropy Loss）与 Dice 损失（Dice Loss）相结合的混合损失函数，平衡了模型对不同类别的关注度，进一步提升了分割精度（mIoU）。
 
