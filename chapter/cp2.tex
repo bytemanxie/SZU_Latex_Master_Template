@@ -37,9 +37,23 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 根据不同的成像原理和数据采集方式，OCT 技术主要分为时域 OCT（Time Domain OCT, TD-OCT）和频域 OCT（Fourier Domain OCT, FD-OCT）两大类\upcite{ZengHaitao_OCT_Speckle}。
 
-\textbf{时域 OCT} 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。
+\textbf{时域 OCT} 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。图 \ref{fig:tdoct_system} 展示了时域 OCT 系统的基本结构。
 
-\textbf{频域 OCT} 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，显著提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figure/cp2/fig2-1_tdoct_system.png}
+    \caption{时域OCT系统原理示意图}
+    \label{fig:tdoct_system}
+\end{figure}
+
+\textbf{频域 OCT} 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，显著提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。图 \ref{fig:sdoct_system} 展示了频域 OCT（谱域 OCT）系统的基本结构。
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figure/cp2/fig2-2_sdoct_system.png}
+    \caption{频域OCT（谱域OCT）系统原理示意图}
+    \label{fig:sdoct_system}
+\end{figure}
 
 \subsubsection{OCT在激光焊接中的应用}
 
