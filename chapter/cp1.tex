@@ -8,7 +8,16 @@
 
 光学相干层析成像（Optical Coherence Tomography, OCT）是一种基于低相干干涉原理的层析成像技术，具有非接触、高轴向分辨率等优势\upcite{ZengHaitao_OCT_Speckle}。在激光焊接场景中，OCT 可通过测量光束获取匙孔（Keyhole）底部反射信息，从而为熔深在线测量提供直接的几何依据，被认为是具有应用潜力的过程监测手段之一\upcite{HuangYiwei_OCT_WeldDepth}。相较于仅能反映表面辐射或二维表观信息的视觉/光电监测方法，OCT 在表征深度结构方面更具优势\upcite{HuangYiwei_OCT_WeldDepth}。
 
-尽管 OCT 在焊接监测中具有优势，但在实际应用中仍面临信号不稳定与噪声干扰等挑战：焊接过程中的熔池波动、金属蒸汽与飞溅会降低信号稳定性\upcite{HuangYiwei_OCT_WeldDepth}；同时，OCT 成像基于低相干干涉，散斑噪声（Speckle Noise）常以随机颗粒纹理形式出现并降低图像信噪比\upcite{ZengHaitao_OCT_Speckle}。在此条件下，锁孔边缘往往呈现对比度低、边界模糊与形态快速变化等特点，传统阈值分割、边缘检测或简单滤波（如中值滤波、百分位滤波）难以在鲁棒性与边界保持之间取得平衡，进而影响后续熔深估计的稳定性与精度\upcite{HuangYiwei_OCT_WeldDepth,ZengHaitao_OCT_Speckle}。
+尽管 OCT 在焊接监测中具有优势，但在实际应用中仍面临信号不稳定与噪声干扰等挑战：焊接过程中的熔池波动、金属蒸汽与飞溅会降低信号稳定性\upcite{HuangYiwei_OCT_WeldDepth}；同时，OCT 成像基于低相干干涉，散斑噪声（Speckle Noise）常以随机颗粒纹理形式出现并降低图像信噪比\upcite{ZengHaitao_OCT_Speckle}。如图~\ref{fig:oct-keyhole-example}~所示，在此条件下，锁孔边缘往往呈现对比度低、边界模糊与形态快速变化等特点，传统阈值分割、边缘检测或简单滤波（如中值滤波、百分位滤波）难以在鲁棒性与边界保持之间取得平衡，进而影响后续熔深估计的稳定性与精度\upcite{HuangYiwei_OCT_WeldDepth,ZengHaitao_OCT_Speckle}。
+
+\begin{figure}[htbp]
+\centering
+% TODO: 插入 OCT 锁孔图像示例
+% 建议内容：(a) 原始 OCT 图像 (b) 标注后的图像（标注锁孔区域、散斑噪声、弱边界）
+\fbox{\parbox{0.8\textwidth}{\centering\vspace{3cm}【待插入图片】\\激光焊接 OCT 锁孔图像示例\\建议分图：(a) 原始 OCT 图像 (b) 标注图（标注锁孔、散斑噪声、弱边界区域）\vspace{3cm}}}
+\caption{激光焊接 OCT 锁孔图像示例}
+\label{fig:oct-keyhole-example}
+\end{figure}
 
 针对上述痛点，本文研究面向焊接 OCT 图像的语义分割方法。与传统图像处理流程相比，深度学习分割模型可通过端到端学习获取更具判别性的语义特征与上下文信息，在噪声与弱边界条件下具有更强的鲁棒性\upcite{Long2015FCN,Ronneberger2015UNet,Chen2018DeepLab}。本文以 DeepLabV3+ 为基线\upcite{Chen2018DeepLab}，面向散斑噪声干扰强、锁孔边界模糊与细长结构易断裂等问题，在编码器端增强全局上下文建模，在解码器端强化局部细节表达，从而实现对锁孔区域的高精度分割，为熔深稳定测量提供算法支撑\upcite{HuangYiwei_OCT_WeldDepth}。
 
@@ -17,34 +26,70 @@
 \noindent 本节围绕本文研究对象（激光焊接场景下的 OCT 锁孔/熔深信息获取）与研究任务（OCT 图像中锁孔目标的语义分割）展开综述。首先总结激光焊接过程监测与熔深测量的主流技术路线及其局限性；其次梳理 OCT 成像中的散斑噪声特性与典型处理方法，指出“先去噪再分割/测量”的流程在边界保持与实时性方面的不足；最后回顾图像语义分割算法的发展脉络与在 OCT/工业视觉中的应用进展，从而引出本文面向噪声干扰与弱边界条件的端到端抗噪分割思路。
 
 \subsubsection{激光焊接过程监测技术现状}
-\noindent 激光焊接过程监测手段大体可分为基于光辐射/光谱的光电监测、基于可见光/红外成像的视觉监测、基于声发射/等离子体信号的声学监测，以及融合多源传感的综合监测等。上述方法在一定程度上能够反映焊接稳定性与缺陷趋势，但往往难以直接、稳定地获取锁孔内部几何信息；同时其信号与熔深之间的映射关系受工艺参数、材料状态与飞溅/蒸汽干扰影响显著，导致可迁移性与精度受限。在此背景下，OCT 凭借其高轴向分辨率、非接触、可穿透烟尘与金属蒸汽并直接表征锁孔深度结构等优势，被认为是实现熔深在线测量与闭环控制的有前景手段\upcite{HuangYiwei_OCT_WeldDepth}。然而，OCT 图像存在噪声强、对比度低、边界模糊等特点，使得锁孔区域的稳定提取仍是亟待解决的关键问题。
+\noindent 激光焊接过程监测手段大体可分为基于光辐射/光谱的光电监测、基于可见光/红外成像的视觉监测、基于声发射/等离子体信号的声学监测，以及融合多源传感的综合监测等\upcite{秦国梁2002激光焊接过程实时监测技术的研究现状及其发展,stavridis2018quality}。其中，高温计、光电二极管等可对匙孔/熔池温度或光辐射强度进行实时采样，但缺乏空间分辨信息；红外热像仪能够直观呈现温度场分布，却存在分辨率有限、成本较高等不足；光学相机可获取高分辨率的熔池/匙孔二维形态，但仍需后续复杂的图像处理流程\upcite{高世一2010激光焊接过程监测及焊缝质量检测技术研究现状,chen2014detection}。上述方法在一定程度上能够反映焊接稳定性与缺陷趋势，但往往难以直接、稳定地获取锁孔内部几何信息；同时其信号与熔深之间的映射关系受工艺参数、材料状态与飞溅/蒸汽干扰影响显著，导致可迁移性与精度受限。
+
+在此背景下，光学相干层析成像（OCT）凭借其高轴向分辨率（可达微米级）、非接触、可穿透烟尘与金属蒸汽并直接表征锁孔深度结构等优势，被认为是实现熔深在线测量与闭环控制的有前景手段\upcite{HuangYiwei_OCT_WeldDepth,BOLEY201956,mittelstadt2019novel}。表~\ref{tab:detection-comparison}~总结了激光焊接过程中常用光学检测技术的特点与局限性。然而，OCT 图像存在噪声强、对比度低、边界模糊等特点，使得锁孔区域的稳定提取仍是亟待解决的关键问题。
+
+\begin{table}[htbp]
+\centering
+\caption{激光焊接过程光学检测技术对比}
+\label{tab:detection-comparison}
+\begin{tabular}{cccc}
+\toprule
+检测技术 & 检测对象 & 优点 & 局限性 \\
+\midrule
+高温计 & 匙孔/熔池温度 & 结构简单、响应快 & 无空间信息 \\
+红外热像仪 & 温度场分布 & 直观呈现温度 & 分辨率低、成本高 \\
+光电传感器 & 辐射/反射光 & 采样率高 & 需复杂参数调整 \\
+光学相机 & 熔池/匙孔形态 & 分辨率高 & 需后续图像处理 \\
+OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsubsection{OCT图像噪声特性及处理方法研究现状}
 \noindent OCT 成像基于低相干干涉，散斑噪声来源于相干叠加与多次散射等因素，常表现为随机颗粒纹理并伴随局部对比度下降，其统计特性与组织/材料表面微结构密切相关\upcite{ZengHaitao_OCT_Speckle}。为提升后续结构识别与测量的稳定性，国内外研究提出了多种 OCT 噪声抑制与质量增强方法，主要包括：\textbf{（1）传统滤波与变换域方法}，如中值/均值滤波、各向异性扩散、BM3D 及小波/非局部均值等；\textbf{（2）硬件或多帧复合策略}，通过多角度/多次采样实现散斑平均以提升信噪比；\textbf{（3）深度学习去噪方法}，利用卷积网络或自编码结构学习噪声分布并恢复结构细节。上述方法为改善可视化质量提供了有效途径，但在锁孔这类\textbf{弱边界、细长深孔、形态快速变化}的目标上，单纯追求去噪往往可能带来边界平滑、细节损失与几何偏移；同时，“先去噪再分割/测量”的两阶段流程增加了系统复杂度与推理延迟，不利于在线闭环控制。
 \par\noindent 因此，本文不将“去噪”作为独立处理步骤，而是将散斑与干扰视为成像条件的一部分，探索\textbf{端到端的抗噪语义分割}：通过在分割网络内部显式增强全局上下文建模与局部边界细节表达，使模型在噪声干扰下仍能稳定学习锁孔的语义结构与轮廓，从流程上减少对额外预处理的依赖。
 
 \subsubsection{图像语义分割算法研究现状}
-\noindent 语义分割方法经历了从全卷积网络（FCN）到编码器-解码器结构（U-Net 及其变体），再到多尺度上下文建模（DeepLab 系列空洞卷积与 ASPP）等阶段；近年来，Transformer 及注意力机制被引入分割任务，通过自注意力或混合架构增强长程依赖建模能力，在医学影像与复杂场景分割中表现突出\upcite{Long2015FCN,Ronneberger2015UNet,Chen2018DeepLab,TransUNet2021}。在 OCT 相关任务中，研究者多采用 U-Net/DeepLab 类结构进行层结构或病灶区域分割，也有工作引入注意力机制以提升边界与小目标刻画能力。
-\par\noindent 然而，激光焊接 OCT 锁孔分割与常规医学 OCT 分割在数据分布与目标形态上存在差异：其一，散斑噪声与工况扰动更强，导致特征不稳定；其二，锁孔区域往往呈现\textbf{细长结构}且边界灰度对比度低，易出现断裂与粘连；其三，在线应用对推理速度与稳定性提出更高要求。上述特点使得现有通用分割网络直接迁移时可能面临全局结构判断不足与局部边界细节丢失等问题。基于此，本文以 DeepLabV3+ 为基线，分别从\textbf{全局上下文}与\textbf{局部细节}两方面进行针对性增强，为后续章节提出的 TR 模块与 SAE 模块提供动机与理论依据。
+\noindent 图像语义分割旨在为输入图像的每个像素赋予语义类别标签，是计算机视觉领域的核心任务之一\upcite{严毅2023深度学习背景下的图像语义分割方法综述}。从技术演进角度，深度学习语义分割方法大体经历了以下发展阶段：
+
+\textbf{（1）基于全卷积网络的端到端分割。}Long 等\upcite{Long2015FCN}提出全卷积网络（FCN），首次将图像分类网络改造为逐像素预测结构，奠定了深度语义分割的基础。在此基础上，SegNet\upcite{badrinarayanan2017segnet}采用对称的编码器-解码器架构，通过最大池化索引进行上采样，在保持空间信息的同时降低了参数量；U-Net\upcite{Ronneberger2015UNet}引入跳跃连接融合多尺度特征，在医学影像分割中取得优异效果。
+
+\textbf{（2）多尺度上下文建模方法。}为捕获不同感受野范围的上下文信息，Yu 等\upcite{yu2015multi}提出空洞卷积（Dilated/Atrous Convolution），在不增加参数的情况下扩大感受野；DeepLab 系列\upcite{Chen2014DeepLabV1,Chen2016DeepLabV2,Chen2017DeepLabV3,Chen2018DeepLab}通过空洞空间金字塔池化（ASPP）融合多尺度特征，DeepLabV3+ 进一步结合编码器-解码器结构，在精度与效率间取得平衡；PSPNet\upcite{zhao2017pyramid}则采用金字塔池化模块聚合全局上下文。高分辨率网络 HRNet\upcite{wang2020deep}在整个网络中保持高分辨率表示，有效提升了边界与细节刻画能力。
+
+\textbf{（3）注意力机制与 Transformer 方法。}为建模长程依赖与突出关键区域特征，注意力机制被广泛引入分割任务。SE 模块\upcite{hu2019squeezeandexcitationnetworks}通过通道注意力重校准特征响应；CBAM\upcite{woo2018cbam}结合通道与空间注意力实现双维度特征增强；Non-local\upcite{wang2018non}通过自注意力机制捕获像素间的全局依赖关系；Coordinate Attention\upcite{hou2021coordinateattentionefficientmobile}在轻量化约束下嵌入位置信息以增强空间感知能力。近年来，Vision Transformer\upcite{dosovitskiy2020imageworth16x16words}被引入视觉任务，TransUNet\upcite{TransUNet2021}等混合架构将 Transformer 与 CNN 结合，在医学影像分割中展现出优异的全局建模能力。
+
+\textbf{（4）实时与轻量化分割网络。}面向工业在线检测等实时性要求较高的场景，BiSeNet V2\upcite{yu2021bisenet}、ICNet\upcite{zhao2018icnet}等轻量化网络通过双分支设计或特征金字塔策略在速度与精度间寻求平衡\upcite{王卓2024深度学习实时语义分割研究进展和挑战}。
+
+在 OCT 相关任务中，研究者多采用 U-Net/DeepLab 类结构进行视网膜层结构或病灶区域分割，也有工作引入注意力机制以提升边界与小目标刻画能力。然而，激光焊接 OCT 锁孔分割与常规医学 OCT 分割在数据分布与目标形态上存在显著差异：其一，散斑噪声与工况扰动更强，导致特征不稳定；其二，锁孔区域往往呈现\textbf{细长结构}且边界灰度对比度低，易出现断裂与粘连；其三，在线应用对推理速度与稳定性提出更高要求。上述特点使得现有通用分割网络直接迁移时可能面临全局结构判断不足与局部边界细节丢失等问题。基于此，本文以 DeepLabV3+ 为基线，分别从\textbf{全局上下文}与\textbf{局部细节}两方面进行针对性增强，为后续章节提出的 TR 模块与 SAE 模块提供动机与理论依据。
 
 \subsection{本文主要研究内容}
 
-针对激光焊接 OCT 图像中存在的散斑噪声干扰严重、锁孔目标细小且边界模糊等问题，本文以实现高精度、鲁棒的锁孔语义分割为目标，开展了一系列研究工作。本文的主要研究内容如下：
+针对激光焊接 OCT 图像中存在的散斑噪声干扰严重、锁孔目标细小且边界模糊等问题，本文以实现高精度、鲁棒的锁孔语义分割为目标，围绕"数据集构建—网络结构改进—损失函数优化—实验验证"四个方面开展研究工作。本文的主要研究内容如下：
+
+\begin{figure}[htbp]
+\centering
+% TODO: 插入本文方法总体框架图
+% 建议内容：改进 DeepLabV3+ 架构图，标注 Backbone(ResNet)、ASPP、TR模块、Decoder、SAE模块位置
+% 可复用第三章网络架构图的简化版
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{4cm}【待插入图片】\\本文方法总体框架图\\（标注 Backbone、ASPP、TR 模块、Decoder、SAE 模块位置）\vspace{4cm}}}
+\caption{本文方法总体框架图}
+\label{fig:method-overview}
+\end{figure}
 
 \begin{enumerate}[label=\arabic*., leftmargin=*, itemsep=0.4\baselineskip, topsep=0.2\baselineskip]
-    \item \textbf{构建了面向激光焊接锁孔检测的 OCT 图像语义分割数据集。} 针对现有开源数据集缺乏此类工业场景数据的问题，本文收集了真实的 304 不锈钢激光焊接 OCT 成像数据，制定了统一的标注规范，完成了像素级的精细标注。数据集涵盖了不同焊接工艺参数下的多种锁孔形态，为模型训练与评估提供了坚实的数据基础。
+    \item \textbf{针对现有开源数据集缺乏工业焊接 OCT 场景数据的问题，构建了面向激光焊接锁孔检测的 OCT 图像语义分割数据集。}本文在真实 304 不锈钢激光焊接实验平台上采集原始 OCT 成像数据，涵盖多种功率、速度参数组合下的锁孔形态变化；制定了统一的标注规范，完成了像素级的精细标注，为模型训练与评估提供了坚实的数据基础。
 
-    \item \textbf{提出了一种基于改进 DeepLabV3+ 的 OCT 图像语义分割网络。}
-    
-    \hspace{2em}针对 DeepLabV3+ 模型在处理 OCT 图像时存在的全局上下文信息利用不足和局部细节丢失问题，本文在编码器-解码器架构的基础上进行了双重改进：
+    \item \textbf{针对 DeepLabV3+ 在 OCT 图像上存在的全局上下文建模不足与局部边界细节丢失问题，提出了基于双模块增强的改进网络架构（如图~\ref{fig:method-overview}~所示）。}本文在编码器-解码器结构的基础上进行双重改进：
     \begin{enumerate}[label=（\arabic*）, leftmargin=3em, itemsep=0.2\baselineskip, topsep=0.2\baselineskip]
-        \item 在编码器末端引入\textbf{TR（Transformer Routing）模块}。借鉴 Transformer 全局建模思想，在编码器高层特征上引入基于路由稀疏注意力的全局上下文增强，以提升长程依赖建模能力并降低无关区域干扰\upcite{zhu2023biformervisiontransformerbilevel,TransUNet2021}。
-        \item 在解码器融合阶段引入\textbf{SAE（Spatial Attention Enhancement）模块}。在高低层特征融合后引入空间与通道注意力协同增强，突出边缘与细小结构的特征响应，提升弱边界条件下的分割精细度\upcite{hou2021coordinateattentionefficientmobile,hu2019squeezeandexcitationnetworks}。
+        \item \textbf{针对全局上下文建模能力不足的问题，在编码器末端引入 TR（Transformer Routing）模块。}该模块借鉴 BiFormer\upcite{zhu2023biformervisiontransformerbilevel}的双层路由稀疏注意力机制，在编码器高层特征上实现内容感知的全局上下文增强，使网络能够聚焦于与锁孔语义相关的关键区域，提升长程依赖建模能力并降低背景噪声干扰。
+        \item \textbf{针对局部边界细节易丢失的问题，在解码器融合阶段引入 SAE（Spatial Attention Enhancement）模块。}该模块在高低层特征融合后引入空间与通道注意力协同增强，参考 Coordinate Attention\upcite{hou2021coordinateattentionefficientmobile}与 SE\upcite{hu2019squeezeandexcitationnetworks}的设计思想，突出边缘与细小结构的特征响应，提升弱边界条件下的分割精细度。
     \end{enumerate}
 
-    \item \textbf{设计了适应类别不平衡的混合损失函数与训练策略。} 针对 OCT 图像中背景区域广大而锁孔目标区域较小（前景背景比例失衡）的问题，采用交叉熵损失（Cross Entropy Loss）与 Dice 损失（Dice Loss）相结合的混合损失函数，平衡了模型对不同类别的关注度，进一步提升了分割精度（mIoU）。
+    \item \textbf{针对前景背景类别不平衡的问题，设计了适应性混合损失函数。}由于 OCT 图像中背景区域广大而锁孔目标区域较小，采用交叉熵损失（Cross Entropy Loss）与 Dice 损失（Dice Loss）相结合的混合损失函数，平衡了模型对不同类别的关注度，有效缓解了类别不平衡对模型训练的负面影响，进一步提升了分割精度。
 
-    \item \textbf{进行了系统的实验验证与对比分析。} 在自建数据集上对所提方法进行了全面的实验评估。实验结果表明，改进后的模型在 mIoU、Dice 系数等关键指标上均优于基线 DeepLabV3+ 及 U-Net、TransUNet 等主流分割网络。通过消融实验验证了 TR 模块与 SAE 模块的有效性，并对分割结果进行了可视化分析，证明了本文方法在复杂工况下的鲁棒性与优越性。
+    \item \textbf{进行了系统的实验验证与对比分析。}在自建数据集上对所提方法进行了全面的实验评估，与 U-Net\upcite{Ronneberger2015UNet}、DeepLabV3+\upcite{Chen2018DeepLab}、TransUNet\upcite{TransUNet2021}等主流分割网络进行对比。实验结果表明，改进后的模型在 mIoU、Dice 系数等关键指标上均取得显著提升。通过消融实验逐一验证了 TR 模块与 SAE 模块对模型性能的贡献，并对分割结果进行了可视化分析，证明了本文方法在散斑噪声与弱边界条件下的鲁棒性与优越性。
 \end{enumerate}
 
 \subsection{论文组织结构}
