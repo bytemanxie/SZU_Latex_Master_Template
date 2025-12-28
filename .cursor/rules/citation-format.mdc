@@ -1,0 +1,123 @@
+---
+description: 参考文献引用规范 - 深大格式规范下的 BibTeX 条目与引用格式要求
+alwaysApply: false
+---
+
+# 参考文献引用规范（深圳大学硕士论文）
+
+本文件用于指导参考文献的 BibTeX 条目编写与正文引用格式，基于《深圳大学研究生学位论文基本要求及格式规范》（2024年1月版）。
+
+## 文中引用格式
+
+### 基本规则
+- **顺序编码制**：按文献在正文中首次出现的顺序编号，使用方括号上角标 `[1]`
+- **引用命令**：使用 `\upcite{key}` 或 `\cite{key}`（取决于模板配置）
+- **引用位置**：通常放在句末标点之前，如 `……\upcite{Chen2018DeepLab}。`
+
+### 多篇文献引用
+- **同处引用多篇**：`\upcite{a,b,c}` 输出 `[1,3,5]`
+- **连续序号**：如 `[10-15]` 表示连续编号的文献
+- **混合格式**：`[2,4,10-15]`（半角逗号分隔，连续可写范围）
+
+### 同一文献多次引用
+- 使用首次出现的序号
+- 在 `[]` 后标注页码：`\upcite{key}101-103` 输出 `[2]101-103`
+
+## BibTeX 条目规范
+
+### 文献类型与标志代码
+
+| 类型 | BibTeX | 标志 | 说明 |
+|------|--------|------|------|
+| 期刊论文 | `@article` | [J] | 含 arXiv 预印本 |
+| 会议论文 | `@inproceedings` | [C] | 会议录 |
+| 学位论文 | `@mastersthesis` / `@phdthesis` | [D] | 硕/博士论文 |
+| 专著 | `@book` | [M] | 图书 |
+| 标准 | `@misc` 或自定义 | [S] | 国家/行业标准 |
+| 专利 | `@patent` 或 `@misc` | [P] | 专利文献 |
+| 电子文献 | `@misc` | [EB/OL] | 网络资源 |
+
+### 作者格式
+- **不超过三位**：全部列出，用 `and` 连接
+- **超过三位**：列前三位，后加 `and others`（中文输出为"等"，英文输出为"et al"）
+- **外国人名**：姓在前，名缩写在后，如 `Chen, Liang-Chieh`
+- **中文人名**：直接使用中文，如 `黄贻蔚`
+
+### 常见条目模板
+
+#### 期刊论文（含 arXiv）
+```bibtex
+@article{Chen2018DeepLab,
+  title   = {Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation},
+  author  = {Chen, Liang-Chieh and Zhu, Yukun and Papandreou, George and Schroff, Florian and Adam, Hartwig},
+  journal = {arXiv preprint arXiv:1802.02611},
+  year    = {2018},
+  url     = {https://arxiv.org/abs/1802.02611}
+}
+```
+
+#### 中文期刊论文
+```bibtex
+@article{严毅2023深度学习背景下的图像语义分割方法综述,
+  title   = {深度学习背景下的图像语义分割方法综述},
+  author  = {严毅 and 邓超 and 李琳 and 朱凌坤 and 叶彪},
+  journal = {中国图象图形学报},
+  volume  = {28},
+  number  = {11},
+  pages   = {3342--3362},
+  year    = {2023}
+}
+```
+
+#### 硕士学位论文
+```bibtex
+@mastersthesis{HuangYiwei_OCT_WeldDepth,
+  author  = {黄贻蔚},
+  title   = {基于OCT的304不锈钢激光焊接熔深在线检测研究},
+  address = {广州},
+  school  = {广东工业大学},
+  year    = {2024}
+}
+```
+
+#### 会议论文
+```bibtex
+@inproceedings{zhao2017pyramid,
+  title     = {Pyramid scene parsing network},
+  author    = {Zhao, Hengshuang and Shi, Jianping and Qi, Xiaojuan and Wang, Xiaogang and Jia, Jiaya},
+  booktitle = {Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages     = {2881--2890},
+  year      = {2017}
+}
+```
+
+### Key 命名建议
+- **英文文献**：`作者姓+年份+关键词`，如 `Chen2018DeepLab`、`He2015ResNet`
+- **中文文献**：`作者姓名+年份+标题关键词`，如 `黄贻蔚2024OCT熔深`
+- **保持一致性**：全文 key 命名风格统一即可
+
+## 常见问题
+
+### arXiv 预印本处理
+- 使用 `@article` 类型（便于 gbt7714-2005.bst 输出为 [J]）
+- `journal` 字段填写：`arXiv preprint arXiv:XXXX.XXXXX`
+- 可选添加 `url` 和 `citedate` 字段
+
+### 避免重复条目
+- 同一文献只保留一个条目
+- 如需别名，在 tex 中统一使用同一个 key
+- 定期检查 bib 文件，删除重复项
+
+### 参考文献表格式
+- 使用 `gbt7714-2005.bst` 或 `gbt7714-numerical.bst` 样式文件
+- 参考文献表正文：宋体（英文 Times New Roman）五号字
+- 行间距 1.25 倍，左对齐
+
+## 质量检查清单
+
+- [ ] 所有引用的文献都在 bib 文件中有对应条目
+- [ ] 无重复的 key 或条目
+- [ ] 作者格式统一（超过三位用 `and others`）
+- [ ] 必填字段完整（author, title, year 等）
+- [ ] arXiv 论文使用 `@article` 类型
+- [ ] 中英文标点符号正确（bib 文件中使用半角标点）
