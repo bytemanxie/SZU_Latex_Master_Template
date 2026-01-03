@@ -30,7 +30,7 @@
 
 \subsubsection{SAE模块原理与结构}
 
-SAE 模块的核心思想是将空间位置信息嵌入到特征表示中，通过坐标注意力机制实现特征的空间维度重标定。SAE 模块的结构如图~\ref{fig:sae_structure}~所示。
+SAE 模块的核心思想是将空间位置信息嵌入到特征表示中，通过坐标注意力机制实现特征的空间维度重标定。与 SE 模块\upcite{hu2019squeezeandexcitationnetworks}仅关注通道维度不同，SAE 模块同时建模空间位置关系；与 ECA-Net\upcite{wang2020ecanet}的高效通道注意力相比，SAE 模块更适合处理具有方向性特征的细长目标。SAE 模块的结构如图~\ref{fig:sae_structure}~所示。
 
 \begin{figure}[htbp]
 \centering

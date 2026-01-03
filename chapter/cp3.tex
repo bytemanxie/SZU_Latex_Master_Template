@@ -80,7 +80,7 @@ ASPP 模块使用深度可分离卷积降低计算复杂度。深度可分离卷
 
 DeepLabV3+ 采用编码器-解码器架构，其中编码器负责提取图像的多尺度特征并捕获语义信息，解码器负责恢复空间分辨率并输出像素级预测结果\upcite{Chen2018DeepLab}。
 
-\textbf{（1）编码器}：本文方法采用 ResNet18-V1c 作为骨干网络\upcite{He2015ResNet}。ResNet18-V1c 是 ResNet 的改进版本，使用 Deep Stem 结构（三个连续的 3×3 卷积替换传统的 7×7 卷积）减少参数量并提升特征提取能力。ResNet18-V1c 包含四个阶段（Stage），逐步提取从低级到高级的特征表示：
+\textbf{（1）编码器}：本文方法采用 ResNet18-V1c 作为骨干网络\upcite{He2015ResNet,wu2016widerdeeper}。ResNet18-V1c 是 ResNet 的改进版本，使用 Deep Stem 结构（三个连续的 3×3 卷积替换传统的 7×7 卷积）减少参数量并提升特征提取能力。ResNet18-V1c 包含四个阶段（Stage），逐步提取从低级到高级的特征表示：
 \begin{itemize}
     \item Stage 1 输出：128×128×64（保留较多细节信息，用于解码器融合）
     \item Stage 2 输出：64×64×128
@@ -182,7 +182,7 @@ TR 模块通过双层路由注意力机制实现三个核心功能：（1）建�
 
 \subsubsection{混合损失函数设计}
 
-OCT 图像语义分割任务面临严重的类别不平衡问题：背景区域通常占据图像的 90\% 以上，而熔深目标区域仅占 5-10\%。传统交叉熵损失对每个像素赋予相同权重，导致模型训练时偏向背景类别。因此，本文设计混合损失函数，结合二元交叉熵损失和 Dice 损失，兼顾像素级精度和区域级一致性。
+OCT 图像语义分割任务面临严重的类别不平衡问题：背景区域通常占据图像的 90\% 以上，而熔深目标区域仅占 5-10\%。传统交叉熵损失对每个像素赋予相同权重，导致模型训练时偏向背景类别。Focal Loss\upcite{lin2018focalloss}通过动态调整样本权重缓解类别不平衡，但在语义分割中效果有限。因此，本文设计混合损失函数，结合二元交叉熵损失和 Dice 损失，兼顾像素级精度和区域级一致性。
 
 \textbf{（1）二元交叉熵损失}
 
@@ -195,7 +195,7 @@ L_{\text{BCE}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\sigma(p_i)) + (1-y
 
 \textbf{（2）Dice 损失}
 
-Dice 损失关注区域重叠，对类别不平衡问题更加鲁棒：
+Dice 损失\upcite{li2020diceloss}关注区域重叠，对类别不平衡问题更加鲁棒：
 \begin{equation}
 L_{\text{Dice}} = 1 - \frac{2 \sum_{i=1}^{N} \sigma(p_i) \cdot y_i + \epsilon}{\sum_{i=1}^{N} \sigma(p_i) + \sum_{i=1}^{N} y_i + \epsilon}
 \label{eq:dice_loss}

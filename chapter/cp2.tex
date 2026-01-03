@@ -35,7 +35,7 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 \subsubsection{OCT技术分类}
 
-根据不同的成像原理和数据采集方式，OCT 技术主要分为时域 OCT（Time Domain OCT, TD-OCT）和频域 OCT（Fourier Domain OCT, FD-OCT）两大类\upcite{ZengHaitao_OCT_Speckle}。
+根据不同的成像原理和数据采集方式，OCT 技术主要分为时域 OCT（Time Domain OCT, TD-OCT）和频域 OCT（Fourier Domain OCT, FD-OCT）两大类\upcite{ZengHaitao_OCT_Speckle,muller2007time}。
 
 \textbf{时域 OCT} 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。图 \ref{fig:tdoct_system} 展示了时域 OCT 系统的基本结构。
 
@@ -73,11 +73,11 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 \subsection{深度学习基础}
 
-深度学习作为机器学习的重要分支，通过构建具有多个隐藏层的神经网络，能够自动学习数据的层次化特征表示。在图像处理领域，卷积神经网络（Convolutional Neural Network, CNN）凭借其强大的特征提取能力，已成为语义分割等视觉任务的主流方法。本节介绍深度学习的基础理论，包括卷积神经网络、编码器-解码器架构以及注意力机制等核心概念。
+深度学习作为机器学习的重要分支，通过构建具有多个隐藏层的神经网络，能够自动学习数据的层次化特征表示\upcite{alom2018alexnetsurvey}。在图像处理领域，卷积神经网络（Convolutional Neural Network, CNN）凭借其强大的特征提取能力，已成为语义分割等视觉任务的主流方法。本节介绍深度学习的基础理论，包括卷积神经网络、编码器-解码器架构以及注意力机制等核心概念。
 
 \subsubsection{卷积神经网络基础}
 
-卷积神经网络是一种专门用于处理具有网格结构数据（如图像）的深度学习模型。CNN 的核心思想是通过局部连接、权值共享和池化操作，有效减少参数量并提取平移不变的特征。
+卷积神经网络是一种专门用于处理具有网格结构数据（如图像）的深度学习模型。CNN 的核心思想是通过局部连接、权值共享和池化操作，有效减少参数量并提取平移不变的特征。近年来，轻量化网络设计如 MobileNetV3\upcite{howard2019searching}通过神经架构搜索实现了高效的移动端部署。
 
 \textbf{（1）卷积层}：卷积层是 CNN 的基本组成单元，通过卷积核（滤波器）在输入特征图上滑动，计算局部区域的加权和。设输入特征图为 $\mathbf{X} \in \mathbb{R}^{H \times W \times C}$，卷积核为 $\mathbf{K} \in \mathbb{R}^{k \times k \times C}$，则卷积操作可表示为：
 \begin{equation}
@@ -133,7 +133,7 @@ Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot
 
 \textbf{（1）编码器}：编码器通常采用预训练的 CNN 骨干网络（如 ResNet、VGG 等），通过逐层卷积和下采样操作，将输入图像转换为高维特征表示。编码过程逐步降低特征图的空间分辨率，同时增加通道数，提取从低级到高级的语义特征。例如，ResNet 编码器通常包含多个阶段（Stage），每个阶段通过卷积和下采样操作，将特征图尺寸减半、通道数加倍，最终得到高维的语义特征表示。
 
-\textbf{（2）解码器}：解码器通过上采样和特征融合操作，逐步恢复特征图的空间分辨率，并输出与输入图像尺寸相同的预测结果。上采样操作通常采用双线性插值或转置卷积实现。解码器还通过跳跃连接（Skip Connection）融合编码器不同阶段的特征，结合低层细节信息和高层语义信息，提升分割精度。
+\textbf{（2）解码器}：解码器通过上采样和特征融合操作，逐步恢复特征图的空间分辨率，并输出与输入图像尺寸相同的预测结果。上采样操作通常采用双线性插值、转置卷积或亚像素卷积\upcite{shi2016real}实现。解码器还通过跳跃连接（Skip Connection）融合编码器不同阶段的特征，结合低层细节信息和高层语义信息，提升分割精度。
 
 \textbf{（3）跳跃连接}：跳跃连接将编码器的中间特征直接传递到解码器的对应层，使得解码器能够利用编码器提取的多尺度特征。U-Net 架构通过 U 形的跳跃连接，将编码器的特征图与解码器对应层的特征图进行拼接，有效融合了细节信息和语义信息，在医学图像分割等任务中取得了优异性能\upcite{Ronneberger2015UNet}。
 
@@ -218,7 +218,7 @@ y[i] = \sum_{k} x[i + r \cdot k] \cdot w[k]
 
 FPN 通过构建特征金字塔，在不同尺度上提取特征，并通过自上而下的路径和横向连接融合多尺度特征。FPN 的设计使得网络能够在不同尺度上检测目标，提升了模型对多尺度目标的处理能力。虽然 FPN 最初设计用于目标检测任务，但其多尺度特征融合的思想在语义分割任务中也得到了广泛应用。
 
-近年来，Transformer 架构也被引入语义分割任务，通过自注意力机制增强长距离依赖建模能力。TransUNet 将 Transformer 作为编码器，结合 U-Net 的解码器结构，在医学图像分割任务中取得了优异性能\upcite{TransUNet2021}。Transformer 架构的引入为语义分割提供了新的思路，但其计算复杂度较高，在实际应用中需要权衡性能与效率。
+近年来，Transformer 架构如 Swin Transformer\upcite{liu2021swin}和 SegFormer\upcite{xie2021segformer}也被引入语义分割任务，通过自注意力机制增强长距离依赖建模能力。TransUNet 将 Transformer 作为编码器，结合 U-Net 的解码器结构，在医学图像分割任务中取得了优异性能\upcite{TransUNet2021}。Transformer 架构的引入为语义分割提供了新的思路，但其计算复杂度较高，在实际应用中需要权衡性能与效率。
 
 为了更清晰地对比上述经典语义分割方法的特点，表~\ref{tab:segmentation_comparison}~总结了各方法的核心创新点与适用场景。
 
@@ -378,7 +378,7 @@ TransUNet & Transformer 编码器 & 长距离依赖建模 & 计算复杂度高 \
     \item \textbf{随机性}：在满足上述约束的前提下，采用随机采样方式进行划分。
 \end{enumerate}
 
-数据集的详细统计信息如表~\ref{tab:dataset_statistics}~所示。
+与公开语义分割数据集如 Cityscapes\upcite{cordts2015cityscapes}相比，本数据集规模较小，但在焊接 OCT 图像这一特定领域具有重要价值。数据集的详细统计信息如表~\ref{tab:dataset_statistics}~所示。
 
 \begin{table}[htbp]
 \centering
