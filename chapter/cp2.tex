@@ -263,51 +263,49 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入预处理效果对比图
-% 建议内容：左右对比展示原始图像与预处理后图像，标注噪声抑制和对比度增强效果
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\预处理效果对比\\（左：原始图像；右：预处理后图像）\vspace{3cm}}}
+\subfigure[原始图像]{
+    \includegraphics[width=0.85\textwidth]{figure/cp2/fig2-6a_raw.jpg}
+    \label{fig:preprocess_raw}
+}
+
+\subfigure[预处理后图像]{
+    \includegraphics[width=0.85\textwidth]{figure/cp2/fig2-6b_processed.png}
+    \label{fig:preprocess_processed}
+}
 \caption{预处理效果对比}
 \label{fig:preprocess_comparison}
 \end{figure}
 
 \subsubsection{基于LabelMe的熔深线段标注}
 
-本研究采用开源图像标注工具 LabelMe 进行语义分割标签的制作。LabelMe 是由麻省理工学院开发的多边形标注工具，支持多种标注格式输出，广泛应用于计算机视觉任务的数据准备工作。
-
-\textbf{（1）标注工具介绍}：LabelMe 提供了交互式的多边形绘制功能，用户可以通过鼠标点击在图像上绘制任意形状的多边形，将目标区域精确标注出来。标注结果以 JSON 格式存储，包含图像路径、标注类别、多边形顶点坐标等信息。LabelMe 的标注界面如图~\ref{fig:labelme_interface}~所示。
+本研究采用基于 Python 语言开发的开源图像标注工具 LabelMe 进行语义分割标签的制作。与传统的图像处理软件相比，LabelMe 的主要优势在于操作便捷、效率较高。该工具配备了多样化的功能，拥有直观的用户界面，能够轻松上手，精确地完成图像标注任务。LabelMe 的标注界面如图~\ref{fig:labelme_interface}~所示，其直观易用的特点一目了然。
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入 LabelMe 标注界面截图
-% 建议内容：展示 LabelMe 软件界面，包含标注工具栏、图像显示区域、标注的熔深区域
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\LabelMe 标注界面\\（展示软件界面与熔深区域标注过程）\vspace{3cm}}}
+\includegraphics[width=0.85\textwidth]{figure/cp2/fig2-7_labelme_interface.png}
 \caption{LabelMe标注界面}
 \label{fig:labelme_interface}
 \end{figure}
 
-\textbf{（2）标注类别定义}：根据焊接 OCT 图像的特点，本研究定义了以下标注类别：
-\begin{itemize}
-    \item \textbf{熔深线段（Weld\_Depth）}：表示焊接熔池底部的深度轮廓线，是本研究的主要分割目标，在标注时沿熔深轮廓绘制多边形区域。
-    \item \textbf{背景（Background）}：除熔深线段外的所有区域，包括空气区域、材料表面以及噪声区域。
-\end{itemize}
+\textbf{（1）标注类别定义}：本研究采用二分类语义分割策略，定义了以下两个标注类别：\ding{172}~熔深线段（Weld\_Depth），表示焊接熔池底部的深度轮廓区域，是本研究的主要分割目标；\ding{173}~背景（Background），即除熔深线段外的所有区域，未标注区域自动作为背景处理。
 
-\textbf{（3）标注规范}：为保证标注的一致性和准确性，制定了以下标注规范：
-\begin{enumerate}
-    \item 熔深线段采用多边形方式标注，沿熔池底部轮廓紧密绘制；
-    \item 对于模糊或不确定的区域，参考相邻帧图像进行判断；
-    \item 标注边界应尽量精确贴合熔深轮廓，避免标注过大或过小；
-    \item 所有图像由同一标注人员完成初始标注，以减少主观差异。
-\end{enumerate}
+\textbf{（2）标注流程}：在运用 LabelMe 软件开展图像手动标注工作时，具体操作流程如下：1.~打开存有原始 OCT 图像的文件夹；2.~在工具栏上点击"创建多边形"按钮；3.~沿熔深区域轮廓紧密绘制多边形，对图像中熔深线段的轮廓予以标注；4.~完成标注后，为每个轮廓选定对应的类别标签（Weld\_Depth）；5.~将标注信息保存为 JSON 格式文件；6.~使用 LabelMe 提供的转换脚本（\texttt{labelme\_json\_to\_dataset}）将 JSON 文件批量转换为 PNG 格式的掩码图像，供深度学习模型训练使用。
 
-\textbf{（4）标注质量控制}：为确保标注质量，采用双人交叉验证的方式进行质量控制。首先由标注人员完成初始标注，随后由第二人进行检查和修正。对于存在争议的样本，由两人协商确定最终标注结果。
+\textbf{（3）标注质量控制}：为确保标注质量，采用双人交叉验证的方式进行质量控制。首先由标注人员完成初始标注，随后由第二人进行检查和修正。对于存在争议的样本，由两人协商确定最终标注结果。完成标注后，还需仔细检查以下事项：图片名称是否准确、格式是否正确、标注是否完整，以及是否存在未标注的图像等情况。
 
-标注完成后，使用 LabelMe 提供的转换脚本将 JSON 格式的标注文件转换为 PNG 格式的掩码图像，供深度学习模型训练使用。标注样例如图~\ref{fig:annotation_example}~所示。
+标注样例如图~\ref{fig:annotation_example}~所示，展示了原始 OCT 图像与对应标注掩码的对比效果。
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入标注样例展示图
-% 建议内容：展示原始图像与对应的标注掩码图像对比，突出熔深区域的标注结果
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\标注样例展示\\（左：原始图像；右：对应标注掩码）\vspace{3cm}}}
+\subfigure[原始图像]{
+    \includegraphics[width=0.42\textwidth]{figure/cp2/fig2-8a_raw.png}
+    \label{fig:annotation_raw}
+}
+\hspace{0.02\textwidth}
+\subfigure[标注掩码]{
+    \includegraphics[width=0.42\textwidth]{figure/cp2/fig2-8b_mask.png}
+    \label{fig:annotation_mask}
+}
 \caption{标注样例展示}
 \label{fig:annotation_example}
 \end{figure}
@@ -346,9 +344,25 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入数据增强效果图
-% 建议内容：展示原始图像与各种增强操作后的图像对比（翻转、旋转、亮度调整等）
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\数据增强效果示例\\（展示原始图像与各种增强操作后的效果对比）\vspace{3cm}}}
+\subfigure[原始图像]{
+    \includegraphics[width=0.30\textwidth]{figure/cp2/fig2-9a_original.png}
+}
+\subfigure[水平翻转]{
+    \includegraphics[width=0.30\textwidth]{figure/cp2/fig2-9b_hflip.png}
+}
+\subfigure[旋转]{
+    \includegraphics[width=0.30\textwidth]{figure/cp2/fig2-9c_rotate.png}
+}
+\\
+\subfigure[亮度调整]{
+    \includegraphics[width=0.30\textwidth]{figure/cp2/fig2-9d_brightness.png}
+}
+\subfigure[对比度调整]{
+    \includegraphics[width=0.30\textwidth]{figure/cp2/fig2-9e_contrast.png}
+}
+\subfigure[高斯噪声]{
+    \includegraphics[width=0.30\textwidth]{figure/cp2/fig2-9f_noise.png}
+}
 \caption{数据增强效果示例}
 \label{fig:augmentation_examples}
 \end{figure}
