@@ -120,20 +120,10 @@ OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 \subsubsection{本文主要研究内容}
 \noindent 针对激光焊接 OCT 图像中存在的散斑噪声干扰严重、匙孔目标细长且边界模糊等问题，本文以实现高精度、鲁棒的匙孔语义分割为目标，围绕"数据集构建—网络结构改进—损失函数优化—实验验证"四个方面开展研究工作。本文的主要研究内容如下：
 
-\begin{figure}[htbp]
-\centering
-% TODO: 插入本文方法总体框架图
-% 建议内容：改进 DeepLabV3+ 架构图，标注 Backbone(ResNet)、ASPP、TR模块、Decoder、SAE模块位置
-% 可复用第三章网络架构图的简化版
-\fbox{\parbox{0.9\textwidth}{\centering\vspace{4cm}【待插入图片】\\本文方法总体框架图\\（标注 Backbone、ASPP、TR 模块、Decoder、SAE 模块位置）\vspace{4cm}}}
-\caption{本文方法总体框架图}
-\label{fig:method-overview}
-\end{figure}
-
 \begin{enumerate}[label=\arabic*., leftmargin=*, itemsep=0.4\baselineskip, topsep=0.2\baselineskip]
     \item \textbf{针对现有开源数据集缺乏工业焊接 OCT 场景数据的问题，构建了面向激光焊接匙孔检测的 OCT 图像语义分割数据集。}本文在真实 304 不锈钢激光焊接实验平台上采集原始 OCT 成像数据，涵盖多种功率、速度参数组合下的匙孔形态变化；制定了统一的标注规范，完成了像素级的精细标注，为模型训练与评估提供了坚实的数据基础。
 
-    \item \textbf{针对 DeepLabV3+ 在 OCT 图像上存在的全局上下文建模不足与局部边界细节丢失问题，提出了基于双模块增强的改进网络架构（如图~\ref{fig:method-overview}~所示）。}本文在编码器-解码器结构的基础上进行双重改进：
+    \item \textbf{针对 DeepLabV3+ 在 OCT 图像上存在的全局上下文建模不足与局部边界细节丢失问题，提出了基于双模块增强的改进网络架构。}本文在编码器-解码器结构的基础上进行双重改进：
     \begin{enumerate}[label=（\arabic*）, leftmargin=3em, itemsep=0.2\baselineskip, topsep=0.2\baselineskip]
         \item \textbf{针对全局上下文建模能力不足的问题，在编码器末端引入 TR（Transformer Routing）模块。}该模块借鉴 BiFormer\upcite{zhu2023biformervisiontransformerbilevel}的双层路由稀疏注意力机制，在编码器高层特征上实现内容感知的全局上下文增强，使网络能够聚焦于与匙孔语义相关的关键区域，提升长程依赖建模能力并降低背景噪声干扰。
         \item \textbf{针对局部边界细节易丢失的问题，在解码器融合阶段引入 SAE（Spatial Attention Enhancement）模块。}该模块在高低层特征融合后引入空间与通道注意力协同增强，参考 Coordinate Attention\upcite{hou2021coordinateattentionefficientmobile}与 SE\upcite{hu2019squeezeandexcitationnetworks}的设计思想，突出边缘与细小结构的特征响应，提升弱边界条件下的分割精细度。
