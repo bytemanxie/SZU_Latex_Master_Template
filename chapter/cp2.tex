@@ -83,10 +83,8 @@ Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入池化运算示意图
-% 建议内容：对比展示最大池化与平均池化的计算过程
-\fbox{\parbox{0.7\textwidth}{\centering\vspace{2.5cm}【待插入图片】\\池化运算示意图\\（最大池化与平均池化对比）\vspace{2.5cm}}}
-\caption{池化运算示意图}
+\includegraphics[width=0.7\textwidth]{figure/cp2/fig2-2_pooling_operation.png}
+\caption{池化运算示意图\upcite{Yani2019TransferLearning}}
 \label{fig:pooling_operation}
 \end{figure}
 
@@ -152,10 +150,8 @@ FCN 通过将预训练的分类网络（如 VGG、ResNet）转换为全卷积结
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入 FCN 网络结构图
-% 建议内容：展示编码器-解码器结构、跳跃连接（FCN-8s/16s/32s对比）
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\FCN 网络结构图\\（编码器-解码器结构与跳跃连接）\vspace{3cm}}}
-\caption{FCN网络结构图}
+\includegraphics[width=0.85\textwidth]{figure/cp2/fig2-3_fcn_structure.png}
+\caption{FCN网络结构图\upcite{Long2015FCN}}
 \label{fig:fcn_structure}
 \end{figure}
 
@@ -167,10 +163,8 @@ U-Net 的关键创新在于其密集的跳跃连接设计：编码器每一层�
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入 U-Net 网络结构图
-% 建议内容：展示对称的 U 形结构，标注编码器、解码器、跳跃连接
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\U-Net 网络结构图\\（对称 U 形结构与跳跃连接）\vspace{3cm}}}
-\caption{U-Net网络结构图}
+\includegraphics[width=0.85\textwidth]{figure/cp2/fig2-4_unet_structure.png}
+\caption{U-Net网络结构图\upcite{Ronneberger2015UNet}}
 \label{fig:unet_structure}
 \end{figure}
 
