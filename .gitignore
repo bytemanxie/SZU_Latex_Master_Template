@@ -1,0 +1,106 @@
+# macOS 系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Thumbnails
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# LaTeX 编译生成的临时文件
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+.*.lb
+
+# 中间文件
+*.dvi
+*.xdv
+*-converted-to.*
+
+# 参考文献相关
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+
+# 索引相关
+*.idx
+*.ilg
+*.ind
+*.ist
+
+# 术语表相关
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.lzo
+*.lzs
+
+# 目录相关
+*.acn
+*.acr
+*.alg
+
+# SyncTeX 相关
+*.synctex
+*.synctex(busy)
+*.synctex.gz
+*.synctex.gz(busy)
+*.pdfsync
+
+# 其他 LaTeX 临时文件
+*.fdb_latexmk
+*.snm
+*.nav
+*.vrb
+*.bak
+*.spl
+*.xwm
+
+# 编辑器相关
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# TeXstudio / TeXworks
+*.txss
+*.bak0
+*.bak1
+*.bak2
+
+# VS Code
+.vscode/
+
+# Cursor
+.cursor/
+
+# latexmk
+*.latexmain
+
+# 输出 PDF（如果需要保留最终 PDF，可注释此行）
+# *.pdf
+
+# 但保留参考图片 PDF
+!figure/**/*.pdf
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
