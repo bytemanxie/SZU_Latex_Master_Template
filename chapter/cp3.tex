@@ -12,16 +12,7 @@
 
 \subsection{DeepLabV3+模型的工作原理}
 
-DeepLabV3+ 是语义分割领域的经典方法，由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}。该模型结合了空洞卷积、ASPP 模块和编码器-解码器结构，在多尺度上下文信息捕获方面表现出色。本节详细介绍 DeepLabV3+ 的核心组件，为后续改进工作奠定基础。DeepLabV3+ 的整体网络结构如图~\ref{fig:deeplabv3plus_arch}~所示。
-
-\begin{figure}[htbp]
-\centering
-% TODO: 插入 DeepLabV3+ 网络结构图
-% 建议内容：展示完整的编码器-解码器结构，包括骨干网络、ASPP模块、解码器和跳跃连接
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\DeepLabV3+ 网络结构图\\（编码器-解码器结构、ASPP模块、跳跃连接）\vspace{3cm}}}
-\caption{DeepLabV3+网络结构图}
-\label{fig:deeplabv3plus_arch}
-\end{figure}
+DeepLabV3+ 是语义分割领域的经典方法，由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}。该模型结合了空洞卷积、ASPP 模块和编码器-解码器结构，在多尺度上下文信息捕获方面表现出色。本节详细介绍 DeepLabV3+ 的核心组件，为后续改进工作奠定基础。DeepLabV3+ 的整体网络结构已在第二章图~\ref{fig:deeplabv3plus_structure}~中详细展示。
 
 \subsubsection{空洞卷积}
 
@@ -31,10 +22,8 @@ DeepLabV3+ 是语义分割领域的经典方法，由 Google 团队于 2018 年�
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入空洞卷积示意图
-% 建议内容：展示不同空洞率（rate=1,2,3）下的卷积核与感受野对比
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{2.5cm}【待插入图片】\\空洞卷积示意图\\（不同空洞率下的卷积核与感受野对比）\vspace{2.5cm}}}
-\caption{空洞卷积示意图}
+\includegraphics[width=0.9\textwidth]{figure/cp3/fig3-1_dilated_conv.png}
+\caption{空洞卷积示意图\upcite{Patel2021Atrous}}
 \label{fig:dilated_conv}
 \end{figure}
 
@@ -53,9 +42,7 @@ ASPP（Atrous Spatial Pyramid Pooling，空洞空间金字塔池化）模块是 
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入 ASPP 模块结构图
-% 建议内容：展示5个并行分支（1×1卷积、3个不同空洞率的3×3卷积、全局平均池化）及其拼接融合过程
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\ASPP 模块结构图\\（5个并行分支：1×1卷积、dilation=12/24/36的空洞卷积、全局平均池化）\vspace{3cm}}}
+\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-2_aspp_module.png}
 \caption{ASPP模块结构图}
 \label{fig:aspp_module}
 \end{figure}
