@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #ffffff; font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 20pt;
+  box-sizing: border-box;
+}
+
+.title {
+  font-size: 18pt;
+  font-weight: bold;
+  color: #1a1a2e;
+  margin-bottom: 15pt;
+}
+
+.main-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 40pt;
+}
+
+.flow-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6pt;
+}
+
+/* 输入输出框 */
+.io-box {
+  background: #e8f4f8;
+  border: 2pt solid #4a90a4;
+  border-radius: 6pt;
+  padding: 8pt 24pt;
+  text-align: center;
+}
+
+/* 模块框 */
+.module-box {
+  background: #fff3e0;
+  border: 2pt solid #e65100;
+  border-radius: 6pt;
+  padding: 8pt 20pt;
+  text-align: center;
+  min-width: 140pt;
+}
+
+/* 注意力模块 - 特殊颜色 */
+.attention-box {
+  background: #e3f2fd;
+  border: 2pt solid #1976d2;
+  border-radius: 6pt;
+  padding: 10pt 16pt;
+  text-align: center;
+  min-width: 160pt;
+}
+
+/* MLP模块 */
+.mlp-box {
+  background: #f3e5f5;
+  border: 2pt solid #7b1fa2;
+  border-radius: 6pt;
+  padding: 10pt 16pt;
+  text-align: center;
+  min-width: 140pt;
+}
+
+/* LayerNorm框 */
+.norm-box {
+  background: #e8f5e9;
+  border: 2pt solid #388e3c;
+  border-radius: 4pt;
+  padding: 6pt 16pt;
+  text-align: center;
+}
+
+/* 位置编码框 */
+.pos-box {
+  background: #fce4ec;
+  border: 2pt solid #c2185b;
+  border-radius: 6pt;
+  padding: 8pt 16pt;
+  text-align: center;
+}
+
+/* 箭头 */
+.arrow {
+  font-size: 14pt;
+  color: #333;
+}
+
+/* 加号（残差连接） */
+.add-circle {
+  width: 24pt;
+  height: 24pt;
+  background: #ffeb3b;
+  border: 2pt solid #f57f17;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16pt;
+  font-weight: bold;
+  color: #333;
+}
+
+/* 残差连接线容器 */
+.residual-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4pt;
+}
+
+.residual-line {
+  width: 40pt;
+  height: 2pt;
+  background: #666;
+}
+
+/* 右侧详细说明 */
+.detail-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12pt;
+  padding: 10pt;
+  background: #fafafa;
+  border: 1pt solid #ddd;
+  border-radius: 8pt;
+  max-width: 220pt;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4pt;
+}
+
+.detail-title {
+  font-size: 10pt;
+  font-weight: bold;
+  color: #333;
+}
+
+.detail-content {
+  font-size: 9pt;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* 分支容器 */
+.branch-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8pt;
+}
+
+</style>
+</head>
+<body>
+
+<h1 class="title">图 3-3 TR 模块结构图</h1>
+
+<div class="main-container">
+  <!-- 左侧：主流程图 -->
+  <div class="flow-container">
+    <!-- 输入 -->
+    <div class="io-box">
+      <p style="margin: 0; font-size: 11pt; font-weight: bold; color: #1565c0;">输入特征 (N,C,H,W)</p>
+    </div>
+    
+    <p class="arrow">↓</p>
+    
+    <!-- 位置编码 -->
+    <div class="pos-box">
+      <p style="margin: 0; font-size: 10pt; font-weight: bold; color: #880e4f;">位置编码</p>
+      <p style="margin: 2pt 0 0 0; font-size: 8pt; color: #666;">DWConv 3×3</p>
+    </div>
+    
+    <p class="arrow">↓ +残差</p>
+    
+    <!-- 第一个分支：Attention -->
+    <div class="norm-box">
+      <p style="margin: 0; font-size: 10pt; font-weight: bold; color: #2e7d32;">LayerNorm</p>
+    </div>
+    
+    <p class="arrow">↓</p>
+    
+    <div class="attention-box">
+      <p style="margin: 0; font-size: 10pt; font-weight: bold; color: #0d47a1;">双层路由注意力</p>
+      <p style="margin: 2pt 0 0 0; font-size: 8pt; color: #555;">Bi-Level Routing Attention</p>
+    </div>
+    
+    <p class="arrow">↓</p>
+    
+    <div class="add-circle">
+      <p style="margin: 0;">+</p>
+    </div>
+    
+    <p class="arrow">↓ 残差连接</p>
+    
+    <!-- 第二个分支：MLP -->
+    <div class="norm-box">
+      <p style="margin: 0; font-size: 10pt; font-weight: bold; color: #2e7d32;">LayerNorm</p>
+    </div>
+    
+    <p class="arrow">↓</p>
+    
+    <div class="mlp-box">
+      <p style="margin: 0; font-size: 10pt; font-weight: bold; color: #4a148c;">MLP</p>
+      <p style="margin: 2pt 0 0 0; font-size: 8pt; color: #666;">Linear → GELU → Linear</p>
+    </div>
+    
+    <p class="arrow">↓</p>
+    
+    <div class="add-circle">
+      <p style="margin: 0;">+</p>
+    </div>
+    
+    <p class="arrow">↓ 残差连接</p>
+    
+    <!-- 输出 -->
+    <div class="io-box">
+      <p style="margin: 0; font-size: 11pt; font-weight: bold; color: #1565c0;">输出特征 (N,C,H,W)</p>
+    </div>
+  </div>
+  
+  <!-- 右侧：详细说明 -->
+  <div class="detail-container">
+    <div class="detail-item">
+      <p class="detail-title" style="margin: 0; color: #c2185b;">① 位置编码</p>
+      <p class="detail-content" style="margin: 0;">深度可分离卷积 (groups=dim)<br/>kernel_size=3, padding=1</p>
+    </div>
+    
+    <div class="detail-item">
+      <p class="detail-title" style="margin: 0; color: #1976d2;">② 双层路由注意力</p>
+      <p class="detail-content" style="margin: 0;">• 区域划分: n_win=4 (4×4窗口)<br/>• TopK路由: k=4 (选择4个相关窗口)<br/>• 多头注意力: num_heads=8<br/>• 复杂度: O(n²×k/p²)</p>
+    </div>
+    
+    <div class="detail-item">
+      <p class="detail-title" style="margin: 0; color: #7b1fa2;">③ MLP 前馈网络</p>
+      <p class="detail-content" style="margin: 0;">• Linear(dim → 4×dim)<br/>• GELU 激活函数<br/>• Linear(4×dim → dim)</p>
+    </div>
+    
+    <div class="detail-item">
+      <p class="detail-title" style="margin: 0; color: #f57f17;">④ 残差连接</p>
+      <p class="detail-content" style="margin: 0;">注意力和MLP分支均使用<br/>残差连接防止梯度消失</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
