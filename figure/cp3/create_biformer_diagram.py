@@ -252,7 +252,7 @@ def create_diagram_slide(prs):
     add_text_box(slide, Cm(2), Cm(12), Cm(12), Cm(0.6),
                  "← 第一层：区域级路由（粗粒度）→", Pt(11))
     add_text_box(slide, Cm(16), Cm(12), Cm(8), Cm(0.6),
-                 "← 第二层：令牌级注意力（细粒度）→", Pt(11))
+                 "← 第二层：细粒度注意力→", Pt(11))
     
     # ========== 添加图标题 ==========
     add_text_box(slide, Cm(0), Cm(14), Cm(28), Cm(1),

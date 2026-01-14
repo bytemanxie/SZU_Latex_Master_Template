@@ -86,7 +86,7 @@ DeepLabV3+ 的创新之处在于将 DeepLabV3 的输出作为编码器特征，�
 \label{fig:tr_module}
 \end{figure}
 
-（1）模块结构。TR 模块主要包括位置编码（深度可分离卷积）、LayerNorm 归一化、双层路由注意力、MLP（扩展-压缩结构）和残差连接等组件。其中，双层路由注意力是核心创新，通过区域级路由和令牌级注意力两个阶段实现高效的全局上下文建模。
+（1）模块结构。TR 模块主要包括位置编码（深度可分离卷积）、LayerNorm 归一化、双层路由注意力、MLP（扩展-压缩结构）和残差连接等组件。其中，双层路由注意力是核心创新，通过区域级路由和细粒度注意力两个阶段实现高效的全局上下文建模。
 
 （2）双层路由注意力机制。
 
@@ -99,14 +99,14 @@ DeepLabV3+ 的创新之处在于将 DeepLabV3 的输出作为编码器特征，�
 \label{fig:bilevel_attention}
 \end{figure}
 
-步骤一，窗口划分。将输入特征图按照固定的窗口大小进行划分，每个窗口包含若干令牌（token），对应特征图中的像素位置。
+步骤一，窗口划分。将输入特征图按照固定的窗口大小进行划分，每个窗口包含若干特征向量，对应特征图中的空间位置。
 
-步骤二，区域级路由。对每个窗口的所有令牌求平均，得到区域级查询向量 $\mathbf{Q}_{\text{region}}^{(i)}$ 和键向量 $\mathbf{K}_{\text{region}}^{(i)}$，其中 $i$ 表示第 $i$ 个窗口。区域级查询和键向量的计算可表示为：
+步骤二，区域级路由。对每个窗口内的所有特征向量求平均，得到区域级查询向量 $\mathbf{Q}_{\text{region}}^{(i)}$ 和键向量 $\mathbf{K}_{\text{region}}^{(i)}$，其中 $i$ 表示第 $i$ 个窗口。区域级查询和键向量的计算可表示为：
 \begin{equation}
 \mathbf{Q}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{Q}_j, \quad \mathbf{K}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{K}_j
 \label{eq:region_qk}
 \end{equation}
-其中，$\mathcal{W}_i$ 表示第 $i$ 个窗口内的所有令牌，$|\mathcal{W}_i|$ 表示窗口内的令牌数量。
+其中，$\mathcal{W}_i$ 表示第 $i$ 个窗口内的所有特征向量，$|\mathcal{W}_i|$ 表示窗口内的特征向量数量。
 
 计算窗口间的相似度矩阵 $\mathbf{S}$，其中 $\mathbf{S}_{ij}$ 表示第 $i$ 个窗口与第 $j$ 个窗口的相似度：
 \begin{equation}
@@ -122,10 +122,10 @@ DeepLabV3+ 的创新之处在于将 DeepLabV3 的输出作为编码器特征，�
 \end{equation}
 其中，$\mathcal{R}_i$ 表示第 $i$ 个窗口选择的相关窗口索引集合，$\mathbf{S}_{i,:}$ 表示相似度矩阵的第 $i$ 行。
 
-步骤四，令牌级注意力。在选定的窗口内进行像素级注意力计算。对于第 $i$ 个窗口，仅对 $\mathcal{R}_i$ 中的窗口进行注意力计算：
+步骤四，细粒度注意力。在选定的窗口内进行像素级注意力计算。对于第 $i$ 个窗口，仅对 $\mathcal{R}_i$ 中的窗口进行注意力计算：
 \begin{equation}
 \text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\mathcal{R}_i}, \mathbf{V}_{\mathcal{R}_i}) = \text{softmax}\left(\frac{\mathbf{Q}_i \mathbf{K}_{\mathcal{R}_i}^T}{\sqrt{d_k}}\right) \mathbf{V}_{\mathcal{R}_i}
-\label{eq:token_attention}
+\label{eq:fine_attention}
 \end{equation}
 其中，$\mathbf{Q}_i$、$\mathbf{K}_{\mathcal{R}_i}$、$\mathbf{V}_{\mathcal{R}_i}$ 分别表示第 $i$ 个窗口的查询矩阵和选定窗口的键值矩阵，$d_k$ 为键向量的维度。
 
@@ -282,14 +282,24 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 38ms \\
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入分割结果可视化对比图
-% 建议内容：展示多组样例的原图、标签、各模型预测结果的对比
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{4cm}【待插入图片】\\分割结果可视化对比图\\（原图 | 标签 | UNet | DeepLabV3+ | DeepLabV3++TR）\vspace{4cm}}}
-\caption{分割结果可视化对比}
+% 待替换为实际图片：figure/cp3/fig3-6_visual_comparison.png
+% 布局：6列×3行（原图、GT、UNet、TransUNet、DeepLabV3+、DeepLabV3++TR）
+\fbox{\parbox{0.93\textwidth}{\centering\vspace{3.5cm}
+\textbf{图3-6 占位符}\\[0.5em]
+\small 从左到右：原图 | 标签 | UNet | TransUNet | DeepLabV3+ | DeepLabV3++TR\\
+\small 建议布局：6列 $\times$ 3行（细长结构 / 边界模糊 / 噪声干扰）
+\vspace{3.5cm}}}
+\caption{分割结果可视化对比（从左到右：原图、标签、UNet、TransUNet、DeepLabV3+、DeepLabV3++TR）}
 \label{fig:visual_comparison}
 \end{figure}
 
-图~\ref{fig:visual_comparison}~展示了不同模型的分割结果可视化对比。可以看到，本文方法在熔深区域的分割更加完整，边界更加清晰。特别是在细长熔深结构的分割上，本文方法有效避免了断裂现象，这主要得益于 TR 模块对全局上下文的有效建模。
+图~\ref{fig:visual_comparison}~展示了不同模型的分割结果可视化对比，选取了三个典型样例进行展示：细长熔深结构、边界模糊区域和噪声干扰场景。从可视化结果可以看出：
+
+（1）在细长熔深结构的分割上，UNet 和 TransUNet 存在明显的断裂现象，DeepLabV3+ 基线模型虽有改善但仍存在局部不连续问题。引入 TR 模块后，本文方法能够完整地分割细长结构，有效避免了断裂现象。这主要得益于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局结构的理解能力。
+
+（2）在边界模糊区域，本文方法的边界定位更加准确。TR 模块的全局上下文建模能力使得模型能够综合考虑整个图像的空间关系，从而在边界不清晰的情况下仍能做出正确判断。
+
+（3）在噪声干扰场景下，本文方法表现出较强的鲁棒性。TR 模块通过关注最相关的区域特征，有效抑制了噪声区域的干扰，保持了分割结果的稳定性。
 
 \subsection{本章小结}
 

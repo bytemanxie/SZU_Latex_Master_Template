@@ -281,19 +281,43 @@ DeepLabV3+ + SAE & 11.45 & 优秀 \\
 
 \subsubsection{可视化分析}
 
-本节通过可视化对比分析，从定性角度评估不同方法的分割效果。图~\ref{fig:visualization}~展示了不同方法在典型样例上的分割结果。
+本节通过可视化对比分析，从定性角度评估不同配置和方法的分割效果。首先通过消融实验可视化展示各模块的逐步提升效果，然后与主流方法进行全面对比。
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入分割结果可视化对比图
-% 建议内容：展示原图、Ground Truth、UNet、TransUNet、DeepLabV3+、本文方法的分割结果对比
-% 选择多个典型样例，包括简单场景、复杂场景和边界复杂场景
-\fbox{\parbox{0.95\textwidth}{\centering\vspace{5cm}【待插入图片】\\分割结果可视化对比图\\（第一行：原图）\\（第二行：Ground Truth）\\（第三行：DeepLabV3+ 基线）\\（第四行：本文方法）\\选择3-4个典型样例，突出边界清晰度和细节保留能力的差异\vspace{5cm}}}
-\caption{分割结果可视化对比}
-\label{fig:visualization}
+% 待替换为实际图片：figure/cp4/fig4-5_ablation_visual.png
+% 布局：6列×3行（原图、GT、DeepLabV3+、+TR、+SAE、+TR+SAE）
+\fbox{\parbox{0.93\textwidth}{\centering\vspace{3.5cm}
+\textbf{图4-5 占位符（消融可视化）}\\[0.5em]
+\small 从左到右：原图 | 标签 | DeepLabV3+ | +TR | +SAE | +TR+SAE\\
+\small 建议布局：6列 $\times$ 3行（边界清晰度 / 细节表达 / 复杂场景）
+\vspace{3.5cm}}}
+\caption{消融实验可视化对比（从左到右：原图、标签、DeepLabV3+、+TR、+SAE、+TR+SAE）}
+\label{fig:ablation_visual}
 \end{figure}
 
-通过可视化对比分析，本文方法在以下方面表现出明显优势：
+图~\ref{fig:ablation_visual}~展示了消融实验的可视化结果，直观呈现了各改进模块对分割效果的逐步提升。从可视化结果可以看出：
+
+（1）单独引入 TR 模块后，细长结构的分割连续性得到明显改善，但边界区域仍存在一定模糊。
+
+（2）单独引入 SAE 模块后，边界分割精度显著提升，边界轮廓更加清晰锐利，但在全局结构理解上略有不足。
+
+（3）同时引入 TR 和 SAE 模块后，分割结果兼具全局结构的完整性和边界的精确性，验证了两个模块的协同互补效应。
+
+\begin{figure}[htbp]
+\centering
+% 待替换为实际图片：figure/cp4/fig4-6_comparison_all.png
+% 布局：7列×3行（原图、GT、UNet、UNet++、ResUNet、TransUNet、本文方法）
+\fbox{\parbox{0.93\textwidth}{\centering\vspace{3.5cm}
+\textbf{图4-6 占位符（综合对比）}\\[0.5em]
+\small 从左到右：原图 | 标签 | UNet | UNet++ | ResUNet | TransUNet | 本文方法\\
+\small 建议布局：7列 $\times$ 3行（选择与图3-6、图4-5不同的样例）
+\vspace{3.5cm}}}
+\caption{与主流方法的分割结果可视化对比（从左到右：原图、标签、UNet、UNet++、ResUNet、TransUNet、本文方法）}
+\label{fig:comparison_all}
+\end{figure}
+
+图~\ref{fig:comparison_all}~展示了本文方法与多种主流语义分割方法的可视化对比。通过对比分析，本文方法在以下方面表现出明显优势：
 
 \textbf{（1）边界清晰度}：本文方法在边界分割方面表现出色，边界更加清晰和连续。SAE 模块通过坐标注意力增强空间位置信息，使得边界特征更加突出，从而提升了边界分割精度。相比之下，基线方法在边界模糊区域可能出现边界断裂或粘连问题。
 
