@@ -34,13 +34,11 @@
 
 尽管 SE 机制在提升模型性能方面取得了显著成果，但它存在一个关键局限：全局池化将空间信息压缩为单一的通道描述符，因此难以保留位置信息，而位置信息对于语义分割任务中捕捉空间结构至关重要。针对这一问题，Hou 等人\upcite{hou2021coordinateattentionefficientmobile}提出了坐标注意力（Coordinate Attention, CA）机制，通过将二维全局池化解耦为一对一维特征编码操作，在保留位置信息的同时实现通道注意力的功能。
 
-本文提出的 SAE（Spatial Awareness Enhancement）模块融合了坐标注意力与通道注意力的优势，其结构如图~\ref{fig:sae_structure}~所示。SAE 模块的工作流程可细分为坐标信息嵌入与坐标注意力生成两个阶段。
+本文提出的 SAE（Spatial Awareness Enhancement）模块融合了坐标注意力与通道注意力的优势，其结构如图~\ref{fig:sae_structure}~所示。如图所示，SAE 模块由三部分组成：坐标注意力分支、特征卷积层和通道注意力分支。整体工作流程可细分为坐标信息嵌入、坐标注意力生成、特征精炼和通道增强四个阶段。
 
 \begin{figure}[htbp]
 \centering
-% TODO: 插入SAE模块结构图
-% 建议内容：展示SAE模块的完整结构，包括水平池化、垂直池化、1×1卷积、Sigmoid激活和特征重标定
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\SAE模块结构图\\（输入特征→水平/垂直池化→1×1卷积→Sigmoid→特征重标定→输出特征）\vspace{3cm}}}
+\includegraphics[width=0.75\textwidth]{figure/cp4/sae_diagram/fig4-1_sae_module.png}
 \caption{SAE模块结构图}
 \label{fig:sae_structure}
 \end{figure}
@@ -70,27 +68,26 @@ f = \delta(F_{1 \times 1}([z^h, z^w]))
 g^h = \sigma(F_h(f^h)), \quad g^w = \sigma(F_w(f^w))
 \end{equation}
 
-其中，$\sigma$ 表示 Sigmoid 激活函数，$g^h \in \mathbb{R}^{C \times H \times 1}$ 和 $g^w \in \mathbb{R}^{C \times 1 \times W}$ 分别表示水平和垂直方向的注意力权重。坐标注意力机制的工作原理如图~\ref{fig:coordinate_attention}~所示。
+其中，$\sigma$ 表示 Sigmoid 激活函数，$g^h \in \mathbb{R}^{C \times H \times 1}$ 和 $g^w \in \mathbb{R}^{C \times 1 \times W}$ 分别表示水平和垂直方向的注意力权重。如图~\ref{fig:sae_structure}~上半部分所示，坐标注意力分支首先通过 X Avg Pool 和 Y Avg Pool 分别沿水平和垂直方向聚合特征，然后经过拼接、卷积、归一化和非线性激活后分裂为两个分支，各自通过独立的 $1 \times 1$ 卷积和 Sigmoid 激活生成方向性注意力权重，最后通过 Re-weight 操作对输入特征进行空间重标定。
 
-\begin{figure}[htbp]
-\centering
-% TODO: 插入坐标注意力机制示意图
-% 建议内容：展示坐标注意力的工作流程，突出水平和垂直两个方向的注意力计算
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}【待插入图片】\\坐标注意力机制示意图\\（展示水平方向池化和垂直方向池化如何生成空间位置敏感的注意力权重）\vspace{3cm}}}
-\caption{坐标注意力机制示意图}
-\label{fig:coordinate_attention}
-\end{figure}
+（3）特征重标定与残差连接
 
-（3）特征重标定
-
-最终，将生成的注意力权重 $g^h$ 和 $g^w$ 应用于输入特征图的每个通道，允许根据全局信息调整每个空间位置的特征响应。坐标注意力的最终输出由下式给出：
+将生成的注意力权重 $g^h$ 和 $g^w$ 应用于输入特征图的每个通道，允许根据全局信息调整每个空间位置的特征响应。坐标注意力的输出由下式给出：
 \begin{equation}
 y_c(i, j) = x_c(i, j) \times g_c^h(i) \times g_c^w(j)
 \end{equation}
 
-其中，$y_c(i, j)$ 表示输出特征图第 $c$ 个通道在位置 $(i, j)$ 处的值。通过上述过程，SAE 模块能够捕捉特征图在水平和垂直两个方向上的位置信息，并通过注意力权重对不同空间位置的特征进行自适应调整。
+其中，$y_c(i, j)$ 表示输出特征图第 $c$ 个通道在位置 $(i, j)$ 处的值。如图~\ref{fig:sae_structure}~所示，坐标注意力分支的输出与输入通过残差连接相加，保留原始特征信息的同时融入空间位置感知能力。
 
-此外，SAE 模块在坐标注意力之后还引入了 SE 风格的通道注意力分支，通过全局平均池化和多分支全连接层进一步增强通道间的特征交互。坐标注意力通过坐标轴分解策略，将二维全局空间编码解耦为水平—垂直方向的一维位置感知，增强了模型对细长结构边界的定位能力；通道注意力则通过学习通道间的依赖关系，突出判别性通道的特征响应。二者的协同作用实现了空间与通道维度的双重特征增强，使模型能够更准确地定位目标边界，在处理细长形目标和边缘模糊区域时表现出显著优势。
+（4）特征精炼
+
+经过坐标注意力增强后的特征进入两层 $3 \times 3$ 卷积模块，每层包含卷积、批归一化和 ReLU 激活函数，用于进一步精炼和融合特征表示。该模块的输出同样通过残差连接与输入相加，如图~\ref{fig:sae_structure}~中间部分所示。
+
+（5）通道注意力增强
+
+如图~\ref{fig:sae_structure}~下半部分所示，SAE 模块在坐标注意力之后引入了 SE 风格的通道注意力分支，采用多分支并行结构增强通道间的特征交互。具体而言，首先通过全局平均池化将特征图压缩为 $1 \times 1 \times C$ 的通道描述符；然后通过 4 个并行的全连接层（每个分支输出通道数为 $C/r$，$r$ 为压缩比）分别捕捉不同的通道依赖模式；接着将 4 个分支的输出拼接并通过另一个全连接层和 Sigmoid 激活生成最终的通道注意力权重；最后通过逐元素乘法（Scale）对特征图的各通道进行自适应重标定。
+
+坐标注意力通过坐标轴分解策略，将二维全局空间编码解耦为水平—垂直方向的一维位置感知，增强了模型对细长结构边界的定位能力；通道注意力则通过学习通道间的依赖关系，突出判别性通道的特征响应。二者的协同作用实现了空间与通道维度的双重特征增强，使模型能够更准确地定位目标边界，在处理细长形目标和边缘模糊区域时表现出显著优势。
 
 \subsubsection{SAE模块集成方式}
 
