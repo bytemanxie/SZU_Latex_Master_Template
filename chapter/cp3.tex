@@ -283,23 +283,21 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 38ms \\
 \begin{figure}[htbp]
 \centering
 % 待替换为实际图片：figure/cp3/fig3-6_visual_comparison.png
-% 布局：6列×3行（原图、GT、UNet、TransUNet、DeepLabV3+、DeepLabV3++TR）
-\fbox{\parbox{0.93\textwidth}{\centering\vspace{3.5cm}
+% 布局：6列×2行（原图、标签、UNet、TransUNet、DeepLabV3+、本文方法）
+\fbox{\parbox{0.95\textwidth}{\centering\vspace{2.5cm}
 \textbf{图3-6 占位符}\\[0.5em]
-\small 从左到右：原图 | 标签 | UNet | TransUNet | DeepLabV3+ | DeepLabV3++TR\\
-\small 建议布局：6列 $\times$ 3行（细长结构 / 边界模糊 / 噪声干扰）
-\vspace{3.5cm}}}
-\caption{分割结果可视化对比（从左到右：原图、标签、UNet、TransUNet、DeepLabV3+、DeepLabV3++TR）}
+\small 从左到右：(a)原图 \quad (b)标签 \quad (c)UNet \quad (d)TransUNet \quad (e)DeepLabV3+ \quad (f)本文方法\\
+\small 布局：6列 $\times$ 2行（样例1：细长结构 / 样例2：边界模糊）
+\vspace{2.5cm}}}
+\caption{分割结果可视化对比}
 \label{fig:visual_comparison}
 \end{figure}
 
-图~\ref{fig:visual_comparison}~展示了不同模型的分割结果可视化对比，选取了三个典型样例进行展示：细长熔深结构、边界模糊区域和噪声干扰场景。从可视化结果可以看出：
+图~\ref{fig:visual_comparison}~展示了不同方法的分割结果可视化对比，选取了两个典型样例进行展示。从可视化结果可以看出：
 
 （1）在细长熔深结构的分割上，UNet 和 TransUNet 存在明显的断裂现象，DeepLabV3+ 基线模型虽有改善但仍存在局部不连续问题。引入 TR 模块后，本文方法能够完整地分割细长结构，有效避免了断裂现象。这主要得益于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局结构的理解能力。
 
 （2）在边界模糊区域，本文方法的边界定位更加准确。TR 模块的全局上下文建模能力使得模型能够综合考虑整个图像的空间关系，从而在边界不清晰的情况下仍能做出正确判断。
-
-（3）在噪声干扰场景下，本文方法表现出较强的鲁棒性。TR 模块通过关注最相关的区域特征，有效抑制了噪声区域的干扰，保持了分割结果的稳定性。
 
 \subsection{本章小结}
 
