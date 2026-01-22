@@ -189,9 +189,9 @@ TR 模块的引入使模型能够在 ASPP 模块输出的多尺度特征基础�
 \toprule
 配置项 & 参数 \\
 \midrule
-GPU & NVIDIA GeForce RTX 3090 (24GB) \\
-CPU & Intel Xeon W-2295 \\
-内存 & 128 GB DDR4 RAM \\
+GPU & NVIDIA GeForce RTX 4090D (24GB) × 1 \\
+CPU & AMD EPYC 9754 128-Core Processor（18 vCPU） \\
+内存 & 60 GB \\
 操作系统 & Ubuntu 20.04 LTS \\
 深度学习框架 & PyTorch 1.10.0 \\
 分割框架 & MMSegmentation \\
@@ -212,7 +212,7 @@ GPU加速工具 & CUDA 11.3 \\
 参数 & 设置 \\
 \midrule
 训练迭代次数 & 20,000 次 \\
-批量大小 & 8（每个 GPU） \\
+批量大小 & 8 \\
 优化器 & Adam \\
 初始学习率 & $1 \times 10^{-6}$ \\
 学习率调度策略 & 多项式衰减（power=0.9） \\
@@ -222,7 +222,7 @@ GPU加速工具 & CUDA 11.3 \\
 \end{tabular}
 \end{table}
 
-（3）评价指标。本文采用语义分割领域常用的评价指标来衡量模型性能，主要包括：\ding{172}~mIoU（平均交并比），所有类别 IoU 的平均值，是评估分割性能的核心指标；\ding{173}~mAcc（平均准确率），所有类别准确率的平均值；\ding{174}~mDice（平均 Dice 系数），所有类别 Dice 系数的平均值，与 IoU 类似但更关注区域重叠；\ding{175}~Params（参数量），模型的参数数量，单位为 MB；\ding{176}~推理时间，处理单张图像所需的时间，单位为 ms。
+（3）评价指标。本文采用语义分割领域常用的评价指标来衡量模型性能，主要包括：\ding{172}~mIoU（平均交并比），所有类别 IoU 的平均值，是评估分割性能的核心指标；\ding{173}~mAcc（平均准确率），所有类别准确率的平均值；\ding{174}~mDice（平均 Dice 系数），所有类别 Dice 系数的平均值，与 IoU 类似但更关注区域重叠；\ding{175}~Params（参数量），模型的参数数量，单位为 MB；\ding{176}~FPS（帧率），模型每秒可处理的图像帧数，用于评估推理速度。
 
 \subsubsection{消融实验}
 
@@ -260,14 +260,14 @@ mAcc 和 mDice 指标分别提升了 1.9\% 和 2.4\%，表明 TR 模块在提升
 \label{tab:comparison}
 \begin{tabular}{cccccc}
 \toprule
-模型 & mIoU & mAcc & mDice & 参数量 & 推理时间 \\
+模型 & mIoU & mAcc & mDice & 参数量 & FPS \\
 \midrule
-UNet & 0.805 & 0.878 & 0.880 & 30MB & 45ms \\
-UNet++ & 0.751 & 0.905 & 0.837 & 8.8MB & - \\
-ResUNet & 0.721 & 0.788 & 0.810 & 13MB & - \\
-TransUNet & 0.810 & 0.963 & 0.884 & 219MB & 156ms \\
-DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 38ms \\
-\textbf{DeepLabV3+ + TR} & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396MB & 89ms \\
+UNet & 0.805 & 0.878 & 0.880 & 30MB & 22.2 \\
+UNet++ & 0.751 & 0.905 & 0.837 & 8.8MB & 24.5 \\
+ResUNet & 0.721 & 0.788 & 0.810 & 13MB & 20.8 \\
+TransUNet & 0.810 & 0.963 & 0.884 & 219MB & 6.4 \\
+DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 26.3 \\
+\textbf{DeepLabV3+ + TR} & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396MB & 11.2 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -276,7 +276,7 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 38ms \\
 
 （1）与 U-Net 系列对比。相比 U-Net（mIoU=0.805），本文方法提升了 9.8\%；相比 U-Net++（mIoU=0.751）和 ResUNet（mIoU=0.721），提升幅度更为显著。这表明传统的编码器-解码器架构在处理 OCT 图像时存在明显的性能瓶颈，而本文方法通过引入全局注意力机制有效解决了这一问题。
 
-（2）与 TransUNet 对比。TransUNet 采用 Transformer 作为编码器，在 mAcc 指标上表现出色（0.963），但其 mIoU（0.810）仍低于本文方法。此外，TransUNet 的参数量（219MB）和推理时间（156ms）都较大，而本文方法在保持更高 mIoU 的同时，推理时间仅为 89ms，比 TransUNet 快 43\%。
+（2）与 TransUNet 对比。TransUNet 采用 Transformer 作为编码器，在 mAcc 指标上表现出色（0.963），但其 mIoU（0.810）仍低于本文方法。此外，TransUNet 的参数量（219MB）较大，推理速度仅为 6.4 FPS，而本文方法在保持更高 mIoU 的同时，推理速度达到 11.2 FPS，比 TransUNet 快 75\%。
 
 （3）与基线模型对比。相比 DeepLabV3+ 基线模型，本文方法在 mIoU、mAcc、mDice 三个核心指标上均有提升，验证了 TR 模块引入的有效性。
 
