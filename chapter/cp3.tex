@@ -282,57 +282,30 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 26.3 \\
 
 \begin{figure}[htbp]
 \centering
-% 样例1：细长结构
 \subfigure[原图]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/origin}.png}
 }
 \subfigure[标签]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/label}.png}
 }
 \subfigure[UNet]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
-}
-\subfigure[TransUNet]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
-}
-\subfigure[DeepLabV3+]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
-}
-\subfigure[本文方法]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/Unet}.png}
 }
 \\
-% 样例2：边界模糊
-\subfigure[原图]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
-}
-\subfigure[标签]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
-}
-\subfigure[UNet]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
-}
 \subfigure[TransUNet]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/transunet}.png}
 }
 \subfigure[DeepLabV3+]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/deeplabv3}.png}
 }
 \subfigure[本文方法]{
-    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/tr}.png}
 }
-% TODO: 替换为实际图片
-% 样例1（细长结构）：fig3-6a1_raw.png, fig3-6b1_label.png, fig3-6c1_unet.png, fig3-6d1_transunet.png, fig3-6e1_deeplabv3plus.png, fig3-6f1_ours.png
-% 样例2（边界模糊）：fig3-6a2_raw.png, fig3-6b2_label.png, fig3-6c2_unet.png, fig3-6d2_transunet.png, fig3-6e2_deeplabv3plus.png, fig3-6f2_ours.png
 \caption{分割结果可视化对比}
 \label{fig:visual_comparison}
 \end{figure}
 
-图~\ref{fig:visual_comparison}~展示了不同方法的分割结果可视化对比，选取了两个典型样例进行展示。从可视化结果可以看出：
-
-（1）在细长熔深结构的分割上，UNet 和 TransUNet 存在明显的断裂现象，DeepLabV3+ 基线模型虽有改善但仍存在局部不连续问题。引入 TR 模块后，本文方法能够完整地分割细长结构，有效避免了断裂现象。这主要得益于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局结构的理解能力。
-
-（2）在边界模糊区域，本文方法的边界定位更加准确。TR 模块的全局上下文建模能力使得模型能够综合考虑整个图像的空间关系，从而在边界不清晰的情况下仍能做出正确判断。
+图~\ref{fig:visual_comparison}~展示了不同方法在细长熔深结构上的分割结果可视化对比。从可视化结果可以看出，UNet 和 TransUNet 存在明显的断裂现象，DeepLabV3+ 基线模型虽有改善但仍存在局部不连续问题。引入 TR 模块后，本文方法能够完整地分割细长结构，有效避免了断裂现象。这主要得益于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局结构的理解能力，使得模型能够综合考虑整个图像的空间关系，从而实现更准确的分割。
 
 \subsection{本章小结}
 
