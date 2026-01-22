@@ -88,12 +88,7 @@ Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot
 \label{fig:pooling_operation}
 \end{figure}
 
-\textbf{（3）激活函数}：激活函数为网络引入非线性，使网络能够学习复杂的非线性映射关系。常用的激活函数包括：
-\begin{itemize}
-    \item \textbf{ReLU（Rectified Linear Unit）}：$f(x) = \max(0, x)$，具有计算简单、梯度稳定等优点，是目前最常用的激活函数。
-    \item \textbf{Sigmoid}：$f(x) = \frac{1}{1+e^{-x}}$，输出范围在 $(0,1)$ 之间，常用于二分类任务的输出层。
-    \item \textbf{Softmax}：$f(x_i) = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$，将输入向量归一化为概率分布，常用于多分类任务的输出层。
-\end{itemize}
+\textbf{（3）激活函数}：激活函数为网络引入非线性，使网络能够学习复杂的非线性映射关系。常用的激活函数包括：\ding{172}~ReLU（Rectified Linear Unit），$f(x) = \max(0, x)$，具有计算简单、梯度稳定等优点，是目前最常用的激活函数；\ding{173}~Sigmoid，$f(x) = \frac{1}{1+e^{-x}}$，输出范围在 $(0,1)$ 之间，常用于二分类任务的输出层；\ding{174}~Softmax，$f(x_i) = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$，将输入向量归一化为概率分布，常用于多分类任务的输出层。
 
 \textbf{（4）批归一化}：批归一化（Batch Normalization）通过在训练过程中对每个批次的数据进行归一化，能够加速网络训练、提高模型稳定性并允许使用更大的学习率\upcite{ioffe2015batchnormalizationacceleratingdeep}。批归一化的操作可表示为：
 \begin{equation}
@@ -369,13 +364,7 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 \subsubsection{数据集划分与统计}
 
-为科学评估模型性能，本研究将数据集按照 8:1:1 的比例划分为训练集、验证集和测试集。划分时遵循以下原则：
-
-\begin{enumerate}
-    \item \textbf{时序连续性}：来自同一焊接序列的图像不跨集划分，避免信息泄露；
-    \item \textbf{分布一致性}：确保三个子集中不同工况下的样本比例基本一致；
-    \item \textbf{随机性}：在满足上述约束的前提下，采用随机采样方式进行划分。
-\end{enumerate}
+为科学评估模型性能，本研究将数据集按照 8:1:1 的比例划分为训练集、验证集和测试集。划分时遵循以下原则：（1）时序连续性，来自同一焊接序列的图像不跨集划分，避免信息泄露；（2）分布一致性，确保三个子集中不同工况下的样本比例基本一致；（3）随机性，在满足上述约束的前提下，采用随机采样方式进行划分。
 
 与公开语义分割数据集如 Cityscapes\upcite{cordts2015cityscapes}相比，本数据集规模较小，但在焊接 OCT 图像这一特定领域具有重要价值。数据集的详细统计信息如表~\ref{tab:dataset_statistics}~所示。
 

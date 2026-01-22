@@ -118,21 +118,19 @@ OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 \noindent 基于上述关键问题的分析，本文选择在 DeepLabV3+ 编码器—解码器框架的基础上，分别从\textbf{全局上下文建模}与\textbf{局部边界细节增强}两个维度进行针对性改进，以实现对激光焊接 OCT 图像中匙孔区域的高精度、鲁棒语义分割。
 
 \subsubsection{本文主要研究内容}
-\noindent 针对激光焊接 OCT 图像中存在的散斑噪声干扰严重、匙孔目标细长且边界模糊等问题，本文以实现高精度、鲁棒的匙孔语义分割为目标，围绕"数据集构建—网络结构改进—损失函数优化—实验验证"四个方面开展研究工作。本文的主要研究内容如下：
+针对激光焊接 OCT 图像中存在的散斑噪声干扰严重、匙孔目标细长且边界模糊等问题，本文以实现高精度、鲁棒的匙孔语义分割为目标，围绕"数据集构建—网络结构改进—损失函数优化—实验验证"四个方面开展研究工作。本文的主要研究内容如下：
 
-\begin{enumerate}[label=\arabic*., leftmargin=*, itemsep=0.4\baselineskip, topsep=0.2\baselineskip]
-    \item \textbf{针对现有开源数据集缺乏工业焊接 OCT 场景数据的问题，构建了面向激光焊接匙孔检测的 OCT 图像语义分割数据集。}本文在真实激光焊接实验平台上采集原始 OCT 成像数据，涵盖多种功率、速度参数组合下的匙孔形态变化；制定了统一的标注规范，完成了像素级的精细标注，为模型训练与评估提供了坚实的数据基础。
+1. \textbf{针对现有开源数据集缺乏工业焊接 OCT 场景数据的问题，构建了面向激光焊接匙孔检测的 OCT 图像语义分割数据集。}本文在真实激光焊接实验平台上采集原始 OCT 成像数据，涵盖多种功率、速度参数组合下的匙孔形态变化；制定了统一的标注规范，完成了像素级的精细标注，为模型训练与评估提供了坚实的数据基础。
 
-    \item \textbf{针对 DeepLabV3+ 在 OCT 图像上存在的全局上下文建模不足与局部边界细节丢失问题，提出了基于双模块增强的改进网络架构。}本文在编码器-解码器结构的基础上进行双重改进：
-    \begin{enumerate}[label=（\arabic*）, leftmargin=3em, itemsep=0.2\baselineskip, topsep=0.2\baselineskip]
-        \item \textbf{针对全局上下文建模能力不足的问题，在编码器末端引入 TR（Transformer Routing）模块。}该模块借鉴 BiFormer\upcite{zhu2023biformervisiontransformerbilevel}的双层路由稀疏注意力机制，在编码器高层特征上实现内容感知的全局上下文增强，使网络能够聚焦于与匙孔语义相关的关键区域，提升长程依赖建模能力并降低背景噪声干扰。
-        \item \textbf{针对局部边界细节易丢失的问题，在解码器融合阶段引入 SAE（Spatial Attention Enhancement）模块。}该模块在高低层特征融合后引入空间与通道注意力协同增强，参考 Coordinate Attention\upcite{hou2021coordinateattentionefficientmobile}与 SE\upcite{hu2019squeezeandexcitationnetworks}的设计思想，突出边缘与细小结构的特征响应，提升弱边界条件下的分割精细度。
-    \end{enumerate}
+2. \textbf{针对 DeepLabV3+ 在 OCT 图像上存在的全局上下文建模不足与局部边界细节丢失问题，提出了基于双模块增强的改进网络架构。}本文在编码器-解码器结构的基础上进行双重改进：
 
-    \item \textbf{针对前景背景类别不平衡的问题，设计了适应性混合损失函数。}由于 OCT 图像中背景区域广大而匙孔目标区域较小，采用交叉熵损失（Cross Entropy Loss）与 Dice 损失（Dice Loss）相结合的混合损失函数，平衡了模型对不同类别的关注度，有效缓解了类别不平衡对模型训练的负面影响，进一步提升了分割精度。
+（1）针对全局上下文建模能力不足的问题，在编码器末端引入 TR（Transformer Routing）模块。该模块借鉴 BiFormer\upcite{zhu2023biformervisiontransformerbilevel}的双层路由稀疏注意力机制，在编码器高层特征上实现内容感知的全局上下文增强，使网络能够聚焦于与匙孔语义相关的关键区域，提升长程依赖建模能力并降低背景噪声干扰。
 
-    \item \textbf{进行了系统的实验验证与对比分析。}在自建数据集上对所提方法进行了全面的实验评估，与 U-Net\upcite{Ronneberger2015UNet}、DeepLabV3+\upcite{Chen2018DeepLab}、TransUNet\upcite{TransUNet2021}等主流分割网络进行对比。实验结果表明，改进后的模型在 mIoU、Dice 系数等关键指标上均取得显著提升。通过消融实验逐一验证了 TR 模块与 SAE 模块对模型性能的贡献，并对分割结果进行了可视化分析，证明了本文方法在散斑噪声与弱边界条件下的鲁棒性与优越性。
-\end{enumerate}
+（2）针对局部边界细节易丢失的问题，在解码器融合阶段引入 SAE（Spatial Attention Enhancement）模块。该模块在高低层特征融合后引入空间与通道注意力协同增强，参考 Coordinate Attention\upcite{hou2021coordinateattentionefficientmobile}与 SE\upcite{hu2019squeezeandexcitationnetworks}的设计思想，突出边缘与细小结构的特征响应，提升弱边界条件下的分割精细度。
+
+3. \textbf{针对前景背景类别不平衡的问题，设计了适应性混合损失函数。}由于 OCT 图像中背景区域广大而匙孔目标区域较小，采用交叉熵损失（Cross Entropy Loss）与 Dice 损失（Dice Loss）相结合的混合损失函数，平衡了模型对不同类别的关注度，有效缓解了类别不平衡对模型训练的负面影响，进一步提升了分割精度。
+
+4. \textbf{进行了系统的实验验证与对比分析。}在自建数据集上对所提方法进行了全面的实验评估，与 U-Net\upcite{Ronneberger2015UNet}、DeepLabV3+\upcite{Chen2018DeepLab}、TransUNet\upcite{TransUNet2021}等主流分割网络进行对比。实验结果表明，改进后的模型在 mIoU、Dice 系数等关键指标上均取得显著提升。通过消融实验逐一验证了 TR 模块与 SAE 模块对模型性能的贡献，并对分割结果进行了可视化分析，证明了本文方法在散斑噪声与弱边界条件下的鲁棒性与优越性。
 
 \subsection{论文组织结构}
 

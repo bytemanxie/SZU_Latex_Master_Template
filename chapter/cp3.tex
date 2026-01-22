@@ -282,13 +282,48 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 26.3 \\
 
 \begin{figure}[htbp]
 \centering
-% 待替换为实际图片：figure/cp3/fig3-6_visual_comparison.png
-% 布局：6列×2行（原图、标签、UNet、TransUNet、DeepLabV3+、本文方法）
-\fbox{\parbox{0.95\textwidth}{\centering\vspace{2.5cm}
-\textbf{图3-6 占位符}\\[0.5em]
-\small 从左到右：(a)原图 \quad (b)标签 \quad (c)UNet \quad (d)TransUNet \quad (e)DeepLabV3+ \quad (f)本文方法\\
-\small 布局：6列 $\times$ 2行（样例1：细长结构 / 样例2：边界模糊）
-\vspace{2.5cm}}}
+% 样例1：细长结构
+\subfigure[原图]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[标签]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[UNet]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[TransUNet]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[DeepLabV3+]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[本文方法]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\\
+% 样例2：边界模糊
+\subfigure[原图]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[标签]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[UNet]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[TransUNet]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[DeepLabV3+]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+\subfigure[本文方法]{
+    \fbox{\rule{0.14\textwidth}{0pt}\rule{0pt}{0.14\textwidth}}
+}
+% TODO: 替换为实际图片
+% 样例1（细长结构）：fig3-6a1_raw.png, fig3-6b1_label.png, fig3-6c1_unet.png, fig3-6d1_transunet.png, fig3-6e1_deeplabv3plus.png, fig3-6f1_ours.png
+% 样例2（边界模糊）：fig3-6a2_raw.png, fig3-6b2_label.png, fig3-6c2_unet.png, fig3-6d2_transunet.png, fig3-6e2_deeplabv3plus.png, fig3-6f2_ours.png
 \caption{分割结果可视化对比}
 \label{fig:visual_comparison}
 \end{figure}
@@ -303,6 +338,6 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 26.3 \\
 
 本章围绕焊接 OCT 图像语义分割任务，从模型设计、改进方法到实验验证展开了系统性分析。针对 DeepLabV3+ 在处理 OCT 图像时全局上下文建模不足的问题，提出了一种基于 Transformer 注意力机制的改进方案。
 
-本章的主要工作包括：1.~详细分析了 DeepLabV3+ 模型的工作原理，包括空洞卷积、ASPP 模块和编码器-解码器结构，为改进工作奠定了理论基础；2.~设计了 TR 全局注意力模块，通过双层路由注意力机制建立长距离依赖，在保持全局建模能力的同时将计算复杂度降低约 75\%；3.~设计了 BCE+Dice 混合损失函数，兼顾像素级精度和区域级一致性，有效应对类别不平衡问题；4.~通过消融实验和对比实验验证了所提方法的有效性，TR 模块使 mIoU 提升 3.9\%（0.851→0.884），相比 U-Net 提升 9.8\%，相比 TransUNet 提升 9.1\%。
+本章的主要工作包括：（1）详细分析了 DeepLabV3+ 模型的工作原理，包括空洞卷积、ASPP 模块和编码器-解码器结构，为改进工作奠定了理论基础；（2）设计了 TR 全局注意力模块，通过双层路由注意力机制建立长距离依赖，在保持全局建模能力的同时将计算复杂度降低约 75\%；（3）设计了 BCE+Dice 混合损失函数，兼顾像素级精度和区域级一致性，有效应对类别不平衡问题；（4）通过消融实验和对比实验验证了所提方法的有效性，TR 模块使 mIoU 提升 3.9\%（0.851→0.884），相比 U-Net 提升 9.8\%，相比 TransUNet 提升 9.1\%。
 
 实验结果表明，TR 模块能够有效增强模型对全局上下文的建模能力，提升对细长熔深结构的分割精度。然而，在对分割结果的分析中发现，模型在边界区域的细节表达能力仍有提升空间。第四章将进一步引入空间感知增强（SAE）模块，通过坐标注意力机制增强模型对空间位置信息的感知能力，实现更精确的边界分割。
