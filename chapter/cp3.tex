@@ -222,7 +222,7 @@ GPU加速工具 & CUDA 11.3 \\
 \end{tabular}
 \end{table}
 
-（3）评价指标。本文采用语义分割领域常用的评价指标来衡量模型性能，主要包括：\ding{172}~mIoU（平均交并比），所有类别 IoU 的平均值，是评估分割性能的核心指标；\ding{173}~mAcc（平均准确率），所有类别准确率的平均值；\ding{174}~mDice（平均 Dice 系数），所有类别 Dice 系数的平均值，与 IoU 类似但更关注区域重叠；\ding{175}~Params（参数量），模型的参数数量，单位为 MB；\ding{176}~FPS（帧率），模型每秒可处理的图像帧数，用于评估推理速度。
+（3）评价指标。本文采用语义分割领域常用的评价指标来衡量模型性能，主要包括：\ding{172}~mIoU（平均交并比），所有类别 IoU 的平均值，是评估分割性能的核心指标；\ding{173}~mAcc（平均准确率），所有类别准确率的平均值；\ding{174}~mDice（平均 Dice 系数），所有类别 Dice 系数的平均值，与 IoU 类似但更关注区域重叠；\ding{175}~Params（参数量），模型的参数数量，单位为 M（百万）。
 
 \subsubsection{消融实验}
 
@@ -236,8 +236,8 @@ GPU加速工具 & CUDA 11.3 \\
 \toprule
 模型配置 & mIoU & mAcc & mDice & 参数量 \\
 \midrule
-DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB \\
-DeepLabV3+ + TR & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396MB \\
+DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95M \\
+DeepLabV3+ + TR & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396M \\
 \midrule
 提升 & \textbf{+3.9\%} & +1.9\% & +2.4\% & +317\% \\
 \bottomrule
@@ -246,7 +246,7 @@ DeepLabV3+ + TR & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396MB \\
 
 由表~\ref{tab:ablation_tr}~可知，引入 TR 模块后，模型在 mIoU 指标上从 0.851 提升至 0.884，提升幅度达 3.9\%。这一提升主要归因于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局上下文的理解能力，使得细长熔深结构能够被更完整地分割。
 
-mAcc 和 mDice 指标分别提升了 1.9\% 和 2.4\%，表明 TR 模块在提升整体分割精度的同时，也改善了区域预测的一致性。虽然 TR 模块引入了额外的参数量（从 95MB 增加到 396MB），但考虑到性能的显著提升，这一开销是可接受的。
+mAcc 和 mDice 指标分别提升了 1.9\% 和 2.4\%，表明 TR 模块在提升整体分割精度的同时，也改善了区域预测的一致性。虽然 TR 模块引入了额外的参数量（从 95M 增加到 396M），但考虑到性能的显著提升，这一开销是可接受的。
 
 消融实验结果验证了 TR 模块在解决全局上下文建模不足问题上的有效性。通过在 ASPP 输出的多尺度特征上引入全局注意力机制，模型能够更好地理解图像的整体结构，从而提升对细长目标的分割精度。
 
@@ -258,16 +258,16 @@ mAcc 和 mDice 指标分别提升了 1.9\% 和 2.4\%，表明 TR 模块在提升
 \centering
 \caption{不同模型在焊接OCT数据集上的性能对比}
 \label{tab:comparison}
-\begin{tabular}{cccccc}
+\begin{tabular}{ccccc}
 \toprule
-模型 & mIoU & mAcc & mDice & 参数量 & FPS \\
+模型 & mIoU & mAcc & mDice & 参数量 \\
 \midrule
-UNet & 0.805 & 0.878 & 0.880 & 30MB & 22.2 \\
-UNet++ & 0.751 & 0.905 & 0.837 & 8.8MB & 24.5 \\
-ResUNet & 0.721 & 0.788 & 0.810 & 13MB & 20.8 \\
-TransUNet & 0.810 & 0.963 & 0.884 & 219MB & 6.4 \\
-DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 26.3 \\
-\textbf{DeepLabV3+ + TR} & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396MB & 11.2 \\
+UNet & 0.805 & 0.878 & 0.880 & 30M \\
+UNet++ & 0.751 & 0.905 & 0.837 & 8.8M \\
+ResUNet & 0.721 & 0.788 & 0.810 & 13M \\
+TransUNet & 0.810 & 0.963 & 0.884 & 219M \\
+DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95M \\
+\textbf{DeepLabV3+ + TR} & \textbf{0.884} & \textbf{0.941} & \textbf{0.935} & 396M \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -276,7 +276,7 @@ DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95MB & 26.3 \\
 
 （1）与 U-Net 系列对比。相比 U-Net（mIoU=0.805），本文方法提升了 9.8\%；相比 U-Net++（mIoU=0.751）和 ResUNet（mIoU=0.721），提升幅度更为显著。这表明传统的编码器-解码器架构在处理 OCT 图像时存在明显的性能瓶颈，而本文方法通过引入全局注意力机制有效解决了这一问题。
 
-（2）与 TransUNet 对比。TransUNet 采用 Transformer 作为编码器，在 mAcc 指标上表现出色（0.963），但其 mIoU（0.810）仍低于本文方法。此外，TransUNet 的参数量（219MB）较大，推理速度仅为 6.4 FPS，而本文方法在保持更高 mIoU 的同时，推理速度达到 11.2 FPS，比 TransUNet 快 75\%。
+（2）与 TransUNet 对比。TransUNet 采用 Transformer 作为编码器，在 mAcc 指标上表现出色（0.963），但其 mIoU（0.810）仍低于本文方法。此外，TransUNet 的参数量（219M）较大，而本文方法在达到更高 mIoU 的同时，参数量虽有增加但性能提升更为显著。
 
 （3）与基线模型对比。相比 DeepLabV3+ 基线模型，本文方法在 mIoU、mAcc、mDice 三个核心指标上均有提升，验证了 TR 模块引入的有效性。
 

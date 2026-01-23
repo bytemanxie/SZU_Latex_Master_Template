@@ -91,28 +91,11 @@ y_c(i, j) = x_c(i, j) \times g_c^h(i) \times g_c^w(j)
 
 \subsubsection{SAE模块集成方式}
 
-SAE 模块被集成到 DeepLabV3+ 的解码器端，具体位置如图~\ref{fig:sae_integration}~所示。
+SAE 模块被集成到 DeepLabV3+ 的解码器端，具体位置如图~\ref{fig:final_model}~所示。
 
-\begin{figure}[htbp]
-\centering
-% 待替换为实际图片：figure/cp4/fig4-2_sae_integration.png
-% 参考图3-5解码器部分，在1×1 Conv和Concat之间标注SAE模块
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{2.5cm}
-\textbf{图4-2 占位符}\\[0.5em]
-\small 解码器局部放大图，展示SAE模块集成位置\\
-\small 数据流：低层特征(256ch) $\rightarrow$ 1$\times$1 Conv(48ch) $\rightarrow$ \textbf{SAE} $\rightarrow$ Concat $\rightarrow$ 输出
-\vspace{2.5cm}}}
-\caption{SAE模块集成位置示意图}
-\label{fig:sae_integration}
-\end{figure}
+在解码器的特征融合过程中，SAE 模块位于低层特征降维之后、与高层特征拼接之前。这一位置选择基于以下考虑：低层特征包含丰富的空间细节信息，但也包含较多噪声；在特征拼接前引入空间感知增强，可以突出边界相关的重要特征，抑制噪声干扰，从而提升后续特征融合的质量。
 
-在解码器中，SAE 模块的集成方式如下：
-
-\textbf{（1）集成位置}：SAE 模块位于低层特征经过 $1 \times 1$ 卷积降维之后、与高层特征拼接之前。这一位置选择基于以下考虑：低层特征包含丰富的空间细节信息，但也包含较多噪声；通过 SAE 模块对低层特征进行空间感知增强，可以突出边界相关的重要特征，抑制噪声干扰。
-
-\textbf{（2）特征流动}：编码器输出的低层特征（来自 ResNet 的 Layer1，通道数为 256）首先经过 $1 \times 1$ 卷积降维至 48 通道，然后输入 SAE 模块进行空间感知增强。增强后的特征与来自 ASPP 和 TR 模块的高层特征进行拼接，最后通过 $3 \times 3$ 卷积和上采样恢复到原始分辨率。
-
-\textbf{（3）计算开销}：SAE 模块采用轻量化设计，主要包含池化操作和少量 $1 \times 1$ 卷积，计算开销较小。实验结果表明，SAE 模块仅增加约 25MB 的参数量，但能带来 5.9\% 的 mIoU 提升，参数效率较高。
+SAE 模块采用轻量化设计，主要包含池化操作和少量卷积层，在引入较小计算开销的同时实现显著的性能提升。
 
 \subsection{改进模型的整体结构}
 
@@ -122,22 +105,16 @@ SAE 模块被集成到 DeepLabV3+ 的解码器端，具体位置如图~\ref{fig:
 
 \begin{figure}[htbp]
 \centering
-% 待替换为实际图片：figure/cp4/fig4-3_final_model.png
-% 基于图3-5修改，在解码器部分添加SAE模块
-\fbox{\parbox{0.95\textwidth}{\centering\vspace{3cm}
-\textbf{图4-3 占位符}\\[0.5em]
-\small 基于图3-5扩展，在解码器部分添加SAE模块（用不同颜色标注）\\
-\small Encoder $\rightarrow$ ASPP $\rightarrow$ TR模块 $\rightarrow$ Decoder（含SAE）$\rightarrow$ Output
-\vspace{3cm}}}
+\includegraphics[width=0.95\textwidth]{figure/cp4/fig4-2_improved_model_structure.png}
 \caption{改进模型（DeepLabV3+ + TR + SAE）整体结构图}
 \label{fig:final_model}
 \end{figure}
 
 改进后的模型在原始 DeepLabV3+ 模型的基础上，主要包含以下优化：
 
-\textbf{（1）编码器端引入 TR 模块}：在 ASPP 模块之后引入 TR（Transformer Routing）全局注意力模块，通过双层路由注意力机制建立长距离依赖关系，增强模型对全局上下文的建模能力。TR 模块的输入为 ASPP 模块的输出特征（尺寸为 $\frac{H}{8} \times \frac{W}{8}$，通道数为 256），输出为相同尺寸的增强特征。
+\textbf{（1）编码器端引入 TR 模块}：在 ASPP 模块之后引入 TR 全局注意力模块，通过双层路由注意力机制建立长距离依赖关系，增强模型对全局上下文的建模能力。
 
-\textbf{（2）解码器端集成 SAE 模块}：在解码器的低层特征处理分支中集成 SAE（Spatial Awareness Enhancement）模块，通过坐标注意力机制增强空间位置感知能力。SAE 模块对降维后的低层特征（48 通道）进行空间维度重标定，突出边界相关的重要特征。
+\textbf{（2）解码器端集成 SAE 模块}：在解码器的低层特征处理分支中集成 SAE 模块，通过坐标注意力机制增强空间位置感知能力，突出边界相关的重要特征。
 
 \textbf{（3）混合损失函数}：采用 BCE+Dice 混合损失函数进行训练，有效缓解类别不平衡问题，提升模型对目标类别的分割性能。
 
@@ -191,7 +168,7 @@ DeepLabV3+ (基线) & $\times$ & $\times$ & 0.851 & 0.923 & 0.913 & - \\
 
 \textbf{（1）TR 模块贡献}：单独引入 TR 模块后，mIoU 从 0.851 提升至 0.884，提升幅度达 3.9\%。这表明全局上下文建模对分割性能有显著提升作用，TR 模块通过建立长距离依赖关系，增强了模型对细长结构目标的整体理解能力。
 
-\textbf{（2）SAE 模块贡献}：单独引入 SAE 模块后，mIoU 从 0.851 提升至 0.901，提升幅度达 5.9\%。这表明空间位置感知对边界分割具有重要意义，SAE 模块通过坐标注意力机制显著提升了边界分割精度。值得注意的是，SAE 模块仅增加 25MB 参数量，参数效率（mIoU 提升/参数量增加）达到 0.236，远高于 TR 模块的 0.013。
+\textbf{（2）SAE 模块贡献}：单独引入 SAE 模块后，mIoU 从 0.851 提升至 0.901，提升幅度达 5.9\%。这表明空间位置感知对边界分割具有重要意义，SAE 模块通过坐标注意力机制显著提升了边界分割精度。值得注意的是，SAE 模块仅增加 25M 参数量，参数效率（mIoU 提升/参数量增加）达到 0.236，远高于 TR 模块的 0.013。
 
 \textbf{（3）双重注意力协同效应}：同时引入 TR 模块和 SAE 模块后，mIoU 从 0.851 提升至 0.911，提升幅度达 7.1\%。组合提升幅度（7.1\%）小于单模块提升幅度之和（3.9\% + 5.9\% = 9.8\%），这表明两模块在提升路径上存在一定重叠。然而，组合配置在所有指标上均取得最优结果，体现了全局（TR）与局部（SAE）信息增强的互补性。
 
@@ -278,17 +255,37 @@ DeepLabV3+ + SAE & 11.45 & 优秀 \\
 
 \begin{figure}[htbp]
 \centering
-% 待替换为实际图片：figure/cp4/fig4-5_comparison_all.png
-% 布局：5列×2行（共10子图，展示全部8个模型）
-% 第一行：原图、标签、UNet、UNet++、ResUNet
-% 第二行：TransUNet、DeepLabV3+、+TR、+SAE、+TR+SAE
-% 对应配置：unet.py、unetpp.py、resunet.py、transunet.py、deeplabv3plus.py、deeplabv3plus_tr.py、deeplabv3plus_sae.py、deeplabv3plus_all.py
-\fbox{\parbox{0.98\textwidth}{\centering\vspace{3cm}
-\textbf{图4-5 占位符：全部8模型对比}\\[0.5em]
-\small 第一行：(a)原图 \quad (b)标签 \quad (c)UNet \quad (d)UNet++ \quad (e)ResUNet\\[0.3em]
-\small 第二行：(f)TransUNet \quad (g)DeepLabV3+ \quad (h)+TR \quad (i)+SAE \quad (j)+TR+SAE\\[0.5em]
-\small 布局：5列 $\times$ 2行，1个典型样例，展示全部8个实验模型
-\vspace{3cm}}}
+\subfigure[原图]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/origin.png}
+}
+\subfigure[标签]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/label.png}
+}
+\subfigure[UNet]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/unet.png}
+}
+\subfigure[UNet++]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/unetpp.png}
+}
+\subfigure[ResUNet]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/resunet.png}
+}
+\\
+\subfigure[TransUNet]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/transunet.png}
+}
+\subfigure[DeepLabV3+]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/v3plus.png}
+}
+\subfigure[+TR]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/tr.png}
+}
+\subfigure[+SAE]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/sae.png}
+}
+\subfigure[+TR+SAE]{
+    \includegraphics[width=0.18\textwidth]{figure/cp4/4-3/all.png}
+}
 \caption{全部方法的分割结果可视化对比}
 \label{fig:comparison_all}
 \end{figure}
@@ -309,35 +306,35 @@ DeepLabV3+ + SAE & 11.45 & 优秀 \\
 \centering
 \caption{不同方法的效率指标对比}
 \label{tab:efficiency}
-\begin{tabular}{lcccc}
+\begin{tabular}{lccc}
 \toprule
-模型配置 & 参数量(MB) & 内存占用(MB) & 推理时间(ms) & FPS \\
+模型配置 & 参数量(M) & 内存占用(MB) & 推理时间(ms) \\
 \midrule
-UNet & 30 & 3809 & 45 & 22.2 \\
-TransUNet & 219 & 19530 & 156 & 6.4 \\
-DeepLabV3+ (基线) & 95 & 2705 & 38 & 26.3 \\
-DeepLabV3+ + SAE & 120 & 7011 & 52 & 19.2 \\
-DeepLabV3+ + TR & 396 & 7004 & 89 & 11.2 \\
-\textbf{本文方法} & \textbf{420} & \textbf{9107} & \textbf{95} & \textbf{10.5} \\
+UNet & 30 & 3809 & 45 \\
+TransUNet & 219 & 19530 & 156 \\
+DeepLabV3+ (基线) & 95 & 2705 & 38 \\
+DeepLabV3+ + SAE & 120 & 7011 & 52 \\
+DeepLabV3+ + TR & 396 & 7004 & 89 \\
+\textbf{本文方法} & \textbf{420} & \textbf{9107} & \textbf{95} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 由表~\ref{tab:efficiency}~可知：
 
-\textbf{（1）参数量分析}：本文方法的参数量为 420MB，相比基线模型（95MB）增加 342.1\%。参数量增加主要来源于 TR 模块（+301MB）和 SAE 模块（+25MB）。虽然参数量增加较大，但性能提升显著（mIoU 提升 7.1\%），参数效率合理。
+\textbf{（1）参数量分析}：本文方法的参数量为 420M，相比基线模型（95M）增加 342.1\%。参数量增加主要来源于 TR 模块（+301M）和 SAE 模块（+25M）。虽然参数量增加较大，但性能提升显著（mIoU 提升 7.1\%），参数效率合理。
 
 \textbf{（2）内存占用分析}：本文方法的内存占用为 9107MB，相比基线模型（2705MB）增加 236.7\%。但相比 TransUNet（19530MB），本文方法的内存占用减少 53.3\%，在性能更优的同时具有更低的内存需求。
 
-\textbf{（3）推理时间分析}：本文方法的推理时间为 95ms，FPS 达到 10.5，满足实时应用需求（\textgreater10 FPS）。相比 TransUNet（156ms，6.4 FPS），本文方法的推理速度快 39.1\%。
+\textbf{（3）推理时间分析}：本文方法的推理时间为 95ms，相比 TransUNet（156ms）减少 39.1\%，在性能更优的同时具有更快的推理速度。
 
-\textbf{（4）效率权衡}：综合考虑性能和效率，本文方法在 mIoU 提升 12.5\% 的同时（相比 TransUNet），内存占用减少 53.3\%，推理时间减少 39.1\%，取得了性能与效率的良好平衡。在实际应用中，如果对实时性要求更高，可以选择仅使用 SAE 模块的配置（FPS 19.2），虽然性能略有下降，但推理速度更快。
+\textbf{（4）效率权衡}：综合考虑性能和效率，本文方法在 mIoU 提升 12.5\% 的同时（相比 TransUNet），内存占用减少 53.3\%，推理时间减少 39.1\%，取得了性能与效率的良好平衡。
 
 \subsection{本章小结}
 
 本章在第三章的基础上，围绕空间位置信息感知不足的问题进行了深入探讨，提出了空间感知增强（SAE）模块，并构建了完整的 DeepLabV3+ + TR + SAE 改进模型。
 
-在模块设计方面，SAE 模块的设计灵感来源于坐标注意力机制，通过沿水平和垂直两个方向进行特征聚合，显式建模特征图的空间位置关系。该模块能够自适应调整不同空间位置的特征权重，突出边界区域的特征表示，从而提升边界分割精度。SAE 模块以较小的参数量（+25MB）实现了显著的性能提升（mIoU +5.9\%），参数效率较高。
+在模块设计方面，SAE 模块的设计灵感来源于坐标注意力机制，通过沿水平和垂直两个方向进行特征聚合，显式建模特征图的空间位置关系。该模块能够自适应调整不同空间位置的特征权重，突出边界区域的特征表示，从而提升边界分割精度。SAE 模块以较小的参数量（+25M）实现了显著的性能提升（mIoU +5.9\%），参数效率较高。
 
 在模型架构方面，本章将 SAE 模块集成到解码器端，与第三章提出的 TR 模块形成"全局-局部"互补的协同机制。TR 模块在编码器端负责全局上下文建模，SAE 模块在解码器端负责局部细节增强，两者协同作用实现了分割性能的综合提升。
 
@@ -345,7 +342,7 @@ DeepLabV3+ + TR & 396 & 7004 & 89 & 11.2 \\
 
 \textbf{（1）性能优势}：本文方法在 mIoU 指标上达到 0.911，相比基线模型提升 7.1\%，相比 UNet 提升 13.2\%，相比 TransUNet 提升 12.5\%。目标类别 IoU 提升 16.3\%，边界精度 HD95 降低 12.6\%。
 
-\textbf{（2）效率优势}：相比 TransUNet，本文方法在性能更优的同时，内存占用减少 53.3\%，推理速度快 39.1\%，FPS 达到 10.5，满足实时应用需求。
+\textbf{（2）效率优势}：相比 TransUNet，本文方法在性能更优的同时，内存占用减少 53.3\%，推理时间减少 39.1\%。
 
 \textbf{（3）协同效应}：消融实验验证了 TR 模块和 SAE 模块的互补性和协同效应，双重注意力机制的组合使用取得了最优性能。
 
