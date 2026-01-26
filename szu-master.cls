@@ -46,7 +46,10 @@
 %全局英文字体
 \setmainfont{Times New Roman}
 %全文字体
-\setCJKmainfont{simsun.ttc} 
+\setCJKmainfont{simsun.ttc}
+%重新定义宋体命令，使用simsun.ttc以支持生僻字
+\setCJKfamilyfont{zhsong}{simsun.ttc}
+\renewcommand{\songti}{\CJKfamily{zhsong}} 
 %设置页眉的横线
 \renewcommand{\headrule}{%
     \hrule width\headwidth height1.5pt % 粗直线
@@ -55,7 +58,8 @@
 }
 
 
-
+%设置标题编号深度
+\setcounter{secnumdepth}{4}
 %设置目录树显示深度
 \setcounter{tocdepth}{3}
 
@@ -243,6 +247,8 @@
 
 \titleformat{\subsubsection}{\zihao{4}\bfseries\fontspec{songti-Bold.otf}}{\thesubsubsection}{1em}{}
 
+%定义四级标题样式
+\titleformat{\paragraph}{\zihao{-4}\bfseries\fontspec{songti-Bold.otf}}{\theparagraph}{1em}{}
 
 % 定义目录标题样式
 \titlecontents{section}[0em]{\bfseries\fontspec{songti-Bold.otf}\zihao{-4}}{\contentspush{\thecontentslabel\hspace{1em}}}{}{\titlerule*[0.4pc]{.}\contentspage\vspace{1.6pt}}%
