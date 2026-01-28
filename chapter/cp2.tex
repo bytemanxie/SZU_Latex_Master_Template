@@ -37,9 +37,9 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 根据不同的成像原理和数据采集方式，OCT 技术主要分为时域 OCT（Time Domain OCT, TD-OCT）和频域 OCT（Fourier Domain OCT, FD-OCT）两大类\upcite{ZengHaitao_OCT_Speckle,muller2007time}。
 
-\textbf{时域 OCT} 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。在时域 OCT 信号处理中，时间序列分析方法可用于分析扫描过程中的信号变化规律\upcite{cryer2011}。
+时域 OCT 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。在时域 OCT 信号处理中，时间序列分析方法可用于分析扫描过程中的信号变化规律\upcite{cryer2011}。
 
-\textbf{频域 OCT} 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，显著提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
+频域 OCT 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，显著提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
 
 \subsubsection{OCT在激光焊接中的应用}
 
@@ -203,7 +203,7 @@ FPN 通过构建特征金字塔，在不同尺度上提取特征，并通过自�
 
 近年来，Transformer 架构如 Swin Transformer\upcite{liu2021swin}和 SegFormer\upcite{xie2021segformer}也被引入语义分割任务，通过自注意力机制增强长距离依赖建模能力。
 
-\textbf{TransUNet} 是一种将 Transformer 与 U-Net 结合的混合架构，由 Chen 等人于 2021 年提出\upcite{TransUNet2021}。TransUNet 的核心思想是利用 Transformer 的全局建模能力弥补纯卷积网络在长距离依赖捕获方面的不足。具体而言，TransUNet 首先使用 CNN（如 ResNet）提取图像的局部特征，然后将特征图划分为固定大小的图像块（Patch），通过线性投影将每个图像块嵌入为特征向量，输入 Transformer 编码器进行全局关系建模。Transformer 编码器输出的特征再通过级联上采样与 CNN 特征融合，最终由 U-Net 风格的解码器生成分割结果。
+TransUNet 是一种将 Transformer 与 U-Net 结合的混合架构，由 Chen 等人于 2021 年提出\upcite{TransUNet2021}。TransUNet 的核心思想是利用 Transformer 的全局建模能力弥补纯卷积网络在长距离依赖捕获方面的不足。具体而言，TransUNet 首先使用 CNN（如 ResNet）提取图像的局部特征，然后将特征图划分为固定大小的图像块（Patch），通过线性投影将每个图像块嵌入为特征向量，输入 Transformer 编码器进行全局关系建模。Transformer 编码器输出的特征再通过级联上采样与 CNN 特征融合，最终由 U-Net 风格的解码器生成分割结果。
 
 TransUNet 的优势在于能够同时利用 CNN 的局部特征提取能力和 Transformer 的全局上下文建模能力，在医学图像分割等需要精确边界定位和全局语义理解的任务中表现出色。然而，Transformer 架构的自注意力机制计算复杂度为 $O(n^2)$（$n$ 为序列长度），导致 TransUNet 的参数量和内存占用较大。在本文的实验对比中，TransUNet 作为代表性的 Transformer 分割方法被纳入性能评估。
 
@@ -252,9 +252,9 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 （4）尺寸调整：将预处理后的图像统一调整为 $512 \times 512$ 像素，采用双线性插值方法进行缩放，以满足深度学习模型的输入尺寸要求。
 
-（5）归一化处理：将图像像素值从 $[0, 255]$ 归一化到 $[0, 1]$ 范围，以加速模型收敛并提高训练稳定性。
-
 预处理前后的图像效果对比如图~\ref{fig:preprocess_comparison}~所示，可以看出预处理后图像的噪声明显减少，熔深区域的对比度显著提升。
+
+此外，在模型训练阶段，还需进行归一化处理：将图像像素值从 $[0, 255]$ 归一化到 $[0, 1]$ 范围，以加速模型收敛并提高训练稳定性。该操作在数据加载时在线进行，不改变保存的图像文件。
 
 \begin{figure}[htbp]
 \centering
