@@ -315,6 +315,135 @@ function addTRDetailSlide(pptx) {
 }
 
 /**
+ * 添加实验设置页
+ */
+function addExperimentSetupSlide(pptx) {
+    const slide = createContentSlide(pptx, LABEL, '实验设置');
+    
+    // 实验环境配置表
+    slide.addText('实验环境配置', { 
+        x: 0.4, y: 1, w: 4.4, h: 0.3, 
+        fontFace: 'Arial', fontSize: 11, bold: true, color: COLORS.NAVY 
+    });
+    
+    slide.addTable([
+        [
+            { text: '配置项', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
+            { text: '配置信息', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } }
+        ],
+        ['操作系统', 'Ubuntu 20.04 LTS'],
+        ['GPU', 'NVIDIA RTX 4090 (24GB)'],
+        ['CPU', 'Intel i7-13700KF'],
+        ['内存', '64GB DDR5'],
+        ['深度学习框架', 'PyTorch 1.13 + CUDA 11.7'],
+        ['分割框架', 'MMSegmentation 0.x']
+    ], { 
+        x: 0.4, y: 1.35, w: 4.4, h: 2.1, 
+        colW: [1.6, 2.8], 
+        fontSize: 9, align: 'left', valign: 'middle', 
+        border: { pt: 0.5, color: 'E0E0E0' } 
+    });
+    
+    // 训练参数配置表
+    slide.addText('训练参数配置', { 
+        x: 5.2, y: 1, w: 4.4, h: 0.3, 
+        fontFace: 'Arial', fontSize: 11, bold: true, color: COLORS.NAVY 
+    });
+    
+    slide.addTable([
+        [
+            { text: '参数', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
+            { text: '设置值', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } }
+        ],
+        ['输入尺寸', '512 × 512'],
+        ['批量大小', '8'],
+        ['总迭代次数', '20,000'],
+        ['优化器', 'AdamW'],
+        ['初始学习率', '6e-5'],
+        ['学习率策略', 'PolyLR (power=0.9)'],
+        ['权重衰减', '0.01'],
+        ['损失函数', 'BCE + Dice (1:1)']
+    ], { 
+        x: 5.2, y: 1.35, w: 4.4, h: 2.45, 
+        colW: [1.8, 2.6], 
+        fontSize: 9, align: 'left', valign: 'middle', 
+        border: { pt: 0.5, color: 'E0E0E0' } 
+    });
+    
+    // 底部说明
+    addBottomBox(slide, pptx, {
+        x: 0.4, y: 3.95, w: 9.2, h: 0.5,
+        title: null,
+        content: '损失函数采用二元交叉熵损失（BCE）与Dice损失的加权组合：L = λ₁×L_BCE + λ₂×L_Dice，其中λ₁=λ₂=1，两者优势互补，BCE关注像素分类，Dice关注区域重叠。'
+    });
+    
+    return slide;
+}
+
+/**
+ * 添加TR模块可视化对比页
+ */
+function addTRVisualizationSlide(pptx) {
+    const slide = createContentSlide(pptx, LABEL, 'TR模块可视化对比（细长结构场景）');
+    
+    // 图像网格 - 使用 cp3/3-6/slender and long/ 目录下的图片
+    const visImages = [
+        { file: 'origin.png', label: '原始图像' },
+        { file: 'label.png', label: 'Ground Truth' },
+        { file: 'Unet.png', label: 'UNet' },
+        { file: 'Unetpp.png', label: 'UNet++' },
+        { file: 'resunet.png', label: 'ResUNet' },
+        { file: 'transunet.png', label: 'TransUNet' },
+        { file: 'deeplabv3.png', label: 'DeepLabV3+' },
+        { file: 'tr.png', label: '+TR (本章方法)', highlight: true }
+    ];
+    
+    const imgW = 2.1, imgH = 1.3;
+    const startX = 0.5, startY = 0.95;
+    const gapX = 0.15, gapY = 0.08;
+    
+    visImages.forEach((img, i) => {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const x = startX + col * (imgW + gapX);
+        const y = startY + row * (imgH + gapY + 0.2);
+        
+        slide.addImage({ path: `${FIGURE_PATHS.cp3}/3-6/slender and long/${img.file}`, x, y, w: imgW, h: imgH });
+        
+        if (img.highlight) {
+            slide.addShape(pptx.shapes.RECTANGLE, { 
+                x: x - 0.02, y: y - 0.02, w: imgW + 0.04, h: imgH + 0.04, 
+                line: { color: COLORS.GREEN, width: 2.5 }, 
+                fill: { type: 'none' } 
+            });
+        }
+        
+        const labelColor = img.highlight ? COLORS.GREEN : (img.label === 'DeepLabV3+' ? COLORS.RED : COLORS.SLATE);
+        const labelBold = img.highlight || img.label === 'DeepLabV3+';
+        slide.addText(img.label, { 
+            x, y: y + imgH + 0.02, w: imgW, h: 0.18, 
+            align: 'center', fontFace: 'Arial', fontSize: 9, color: labelColor, bold: labelBold 
+        });
+    });
+    
+    // 底部分析结论
+    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { 
+        x: 0.4, y: 3.75, w: 9.2, h: 0.7, 
+        fill: { color: COLORS.NAVY } 
+    });
+    slide.addText('可视化分析', { 
+        x: 0.6, y: 3.8, w: 8.8, h: 0.2, 
+        fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.WHITE 
+    });
+    slide.addText('引入TR模块后（绿框），细长结构分割更完整：①全局注意力建立长距离依赖，有效抑制断裂问题；②相比基线DeepLabV3+，边界连续性明显改善；③长程上下文建模有效抑制散斑噪声干扰。', { 
+        x: 0.6, y: 4.02, w: 8.8, h: 0.4, 
+        fontFace: 'Arial', fontSize: 9, color: COLORS.WHITE 
+    });
+    
+    return slide;
+}
+
+/**
  * 添加TR模块消融实验页
  */
 function addTRAblationSlide(pptx) {
@@ -467,7 +596,8 @@ function build(pptx) {
         '空洞卷积与ASPP模块原理',
         '改进动机：全局上下文建模不足',
         'TR模块：双层路由注意力设计',
-        '消融实验验证'
+        '实验设置与消融验证',
+        'TR模块可视化对比'
     ]);
     
     // 内容页
@@ -476,7 +606,9 @@ function build(pptx) {
     addMotivationSlide(pptx);
     addTRModuleSlide(pptx);
     addTRDetailSlide(pptx);
+    addExperimentSetupSlide(pptx);    // 新增：实验设置
     addTRAblationSlide(pptx);
+    addTRVisualizationSlide(pptx);    // 新增：TR可视化对比
     addChapterSummarySlide(pptx);
 }
 
@@ -487,6 +619,8 @@ module.exports = {
     addMotivationSlide,
     addTRModuleSlide,
     addTRDetailSlide,
+    addExperimentSetupSlide,
     addTRAblationSlide,
+    addTRVisualizationSlide,
     addChapterSummarySlide,
 };

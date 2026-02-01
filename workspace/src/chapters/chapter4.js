@@ -224,41 +224,41 @@ function addOverallArchitectureSlide(pptx) {
 function addComprehensiveAblationSlide(pptx) {
     const slide = createContentSlide(pptx, LABEL, '综合消融实验');
     
-    // 消融实验表格
+    // 消融实验表格 - 增加 HD95 列
     slide.addTable([
         [
             { text: '配置', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
             { text: 'TR', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
             { text: 'SAE', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
             { text: 'mIoU', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
-            { text: 'mAcc', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
             { text: 'mDice', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
+            { text: 'HD95↓', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
             { text: '提升', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } }
         ],
-        ['DeepLabV3+ (基线)', '-', '-', '0.851', '0.923', '0.913', '-'],
-        ['+ TR (第三章)', '✓', '-', '0.884', '0.941', '0.935', { text: '+3.9%', options: { color: COLORS.GREEN, bold: true } }],
-        ['+ SAE', '-', '✓', '0.901', '0.948', '0.945', { text: '+5.9%', options: { color: COLORS.GREEN, bold: true } }],
+        ['DeepLabV3+ (基线)', '-', '-', '0.851', '0.913', '12.22', '-'],
+        ['+ TR (第三章)', '✓', '-', '0.884', '0.935', '11.89', { text: '+3.9%', options: { color: COLORS.GREEN, bold: true } }],
+        ['+ SAE', '-', '✓', '0.901', '0.945', { text: '11.45', options: { color: COLORS.GREEN } }, { text: '+5.9%', options: { color: COLORS.GREEN, bold: true } }],
         [
             { text: '+ TR + SAE (本文)', options: { fill: { color: 'E8F5E9' }, bold: true } },
             { text: '✓', options: { fill: { color: 'E8F5E9' }, bold: true } },
             { text: '✓', options: { fill: { color: 'E8F5E9' }, bold: true } },
             { text: '0.911', options: { fill: { color: 'E8F5E9' }, bold: true } },
-            { text: '0.956', options: { fill: { color: 'E8F5E9' }, bold: true } },
             { text: '0.951', options: { fill: { color: 'E8F5E9' }, bold: true } },
+            { text: '10.68', options: { fill: { color: 'E8F5E9' }, color: COLORS.RED, bold: true } },
             { text: '+7.1%', options: { fill: { color: 'E8F5E9' }, color: COLORS.GREEN, bold: true } }
         ]
     ], { 
         x: 0.4, y: 1, w: 9.2, h: 1.8, 
-        colW: [2.2, 0.8, 0.8, 1.1, 1.1, 1.1, 1.1], 
+        colW: [2.2, 0.7, 0.7, 1.1, 1.1, 1.1, 1.3], 
         fontSize: 10, align: 'center', valign: 'middle', 
         border: { pt: 0.5, color: 'E0E0E0' } 
     });
     
-    // 分析卡片
+    // 分析卡片 - 更新内容，强调 HD95
     const analysisCards = [
-        { title: 'SAE模块贡献', desc: 'mIoU提升5.9%，主要作用于局部特征增强，显著改善边界分割精度。参数效率高（+25MB）。' },
-        { title: 'TR模块贡献', desc: 'mIoU提升3.9%，增强全局上下文理解，建立长距离依赖关系，有效抑制噪声干扰。' },
-        { title: '协同效应', desc: '双模块组合提升7.1%，全局（TR）与局部（SAE）信息增强互补，实现更优综合性能。' }
+        { title: 'SAE模块贡献', desc: 'mIoU+5.9%, HD95从12.22降至11.45\n主要作用于边界分割精度提升\n坐标注意力增强空间位置感知' },
+        { title: 'TR模块贡献', desc: 'mIoU+3.9%, HD95从12.22降至11.89\n增强全局上下文理解\n长距离依赖有效抑制噪声' },
+        { title: '协同效应', desc: 'mIoU+7.1%, HD95降至10.68 (-12.6%)\n全局(TR)+局部(SAE)互补\n边界精度与区域完整性双提升' }
     ];
     
     analysisCards.forEach((card, i) => {
@@ -274,7 +274,7 @@ function addComprehensiveAblationSlide(pptx) {
         });
         slide.addText(card.desc, { 
             x: x + 0.1, y: 3.45, w: 2.8, h: 0.9, 
-            fontFace: 'Arial', fontSize: 9, color: COLORS.SLATE 
+            fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
         });
     });
     

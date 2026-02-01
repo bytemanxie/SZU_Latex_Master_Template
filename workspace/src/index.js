@@ -74,13 +74,13 @@ function generatePPT() {
             console.log('\n=== PPT结构概览 ===');
             console.log('封面 + 目录: 2页');
             console.log('第一章（研究背景）: 4页');
-            console.log('第二章（技术基础）: 5页');
-            console.log('第三章（TR模块）: 8页 ← 聚焦全局注意力改进');
-            console.log('第四章（SAE模块）: 8页 ← 聚焦局部增强 + 综合实验');
+            console.log('第二章（技术基础）: 7页 ← 新增数据集构建+评估指标');
+            console.log('第三章（TR模块）: 10页 ← 新增实验设置+可视化对比');
+            console.log('第四章（SAE模块）: 8页 ← 完善HD95指标');
             console.log('第五章（总结展望）: 3页');
             console.log('致谢 + Q&A: 2页');
             console.log('-------------------');
-            console.log('总计: 约32页\n');
+            console.log('总计: 约36页\n');
         })
         .catch(err => {
             console.error('生成PPT时出错:', err);

@@ -170,6 +170,221 @@ function addDeepLabV3PlusSlide(pptx) {
 }
 
 /**
+ * 添加数据集构建流程页
+ */
+function addDatasetConstructionSlide(pptx) {
+    const slide = createContentSlide(pptx, LABEL, '数据集构建流程');
+    
+    // 流程图区域
+    addWhiteBox(slide, pptx, 0.4, 1, 9.2, 1.1);
+    slide.addText('构建流程：采集 → 预处理 → 标注 → 增强 → 划分', { 
+        x: 0.5, y: 1.05, w: 9, h: 0.25, 
+        align: 'center', fontFace: 'Arial', fontSize: 11, bold: true, color: COLORS.NAVY 
+    });
+    
+    // 流程步骤
+    const steps = [
+        { icon: '📷', label: 'OCT采集', color: COLORS.RED },
+        { icon: '→', label: '', color: COLORS.SILVER },
+        { icon: '🔧', label: '预处理', color: COLORS.NAVY },
+        { icon: '→', label: '', color: COLORS.SILVER },
+        { icon: '🏷️', label: 'LabelMe标注', color: COLORS.GREEN },
+        { icon: '→', label: '', color: COLORS.SILVER },
+        { icon: '📈', label: '数据增强', color: COLORS.RED },
+        { icon: '→', label: '', color: COLORS.SILVER },
+        { icon: '📊', label: '集合划分', color: COLORS.NAVY }
+    ];
+    
+    steps.forEach((s, i) => {
+        const x = 0.6 + i * 1.0;
+        if (s.icon === '→') {
+            slide.addText('→', { 
+                x, y: 1.4, w: 0.5, h: 0.5, 
+                align: 'center', valign: 'middle', 
+                fontFace: 'Arial', fontSize: 18, color: COLORS.SILVER 
+            });
+        } else {
+            slide.addText(s.icon, { 
+                x, y: 1.35, w: 0.8, h: 0.3, 
+                align: 'center', fontFace: 'Arial', fontSize: 16 
+            });
+            slide.addText(s.label, { 
+                x: x - 0.15, y: 1.65, w: 1.1, h: 0.35, 
+                align: 'center', fontFace: 'Arial', fontSize: 7, color: s.color, bold: true 
+            });
+        }
+    });
+    
+    // 详细步骤卡片（左侧两个）
+    const processCards = [
+        { 
+            title: '图像采集', 
+            desc: '真实激光焊接实验平台\n采集焊接过程OCT图像\n原始分辨率1000×200',
+            color: COLORS.RED
+        },
+        { 
+            title: '预处理流程', 
+            desc: '裁剪感兴趣区域(200×200)\n中值滤波去噪(3×3)\n直方图均衡化增强对比度\n尺寸调整至512×512',
+            color: COLORS.NAVY
+        }
+    ];
+    
+    processCards.forEach((card, i) => {
+        const x = 0.4 + i * 2.35;
+        addWhiteBox(slide, pptx, x, 2.2, 2.2, 1.4);
+        slide.addShape(pptx.shapes.RECTANGLE, { 
+            x, y: 2.2, w: 2.2, h: 0.04, 
+            fill: { color: card.color } 
+        });
+        slide.addText(card.title, { 
+            x: x + 0.1, y: 2.3, w: 2, h: 0.28, 
+            fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.NAVY 
+        });
+        slide.addText(card.desc, { 
+            x: x + 0.1, y: 2.6, w: 2, h: 0.95, 
+            fontFace: 'Arial', fontSize: 7, color: COLORS.SLATE 
+        });
+    });
+    
+    // 数据标注卡片（右侧，带图片）
+    addWhiteBox(slide, pptx, 5.1, 2.2, 4.5, 1.4);
+    slide.addShape(pptx.shapes.RECTANGLE, { 
+        x: 5.1, y: 2.2, w: 4.5, h: 0.04, 
+        fill: { color: COLORS.GREEN } 
+    });
+    slide.addText('数据标注（LabelMe）', { 
+        x: 5.2, y: 2.3, w: 4.3, h: 0.28, 
+        fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.NAVY 
+    });
+    slide.addText('• 逐像素标注熔深线段\n• 二分类：目标/背景\n• 双人交叉验证', { 
+        x: 5.2, y: 2.6, w: 1.8, h: 0.9, 
+        fontFace: 'Arial', fontSize: 7, color: COLORS.SLATE 
+    });
+    // 添加LabelMe标注界面截图
+    slide.addImage({ path: `${FIGURE_PATHS.cp2}/fig2-7_labelme_interface.png`, x: 7.1, y: 2.55, w: 2.4, h: 1.0 });
+    
+    // 数据集统计表格（数据来源：experiment-data.mdc）
+    slide.addTable([
+        [
+            { text: '数据集', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
+            { text: '原始图像数', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
+            { text: '增强后数量', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } },
+            { text: '占比', options: { fill: { color: COLORS.NAVY }, color: COLORS.WHITE, bold: true } }
+        ],
+        ['训练集', '182', '912', '80%'],
+        ['测试集', '46', '228', '20%'],
+        [
+            { text: '总计', options: { fill: { color: 'E8F5E9' }, bold: true } },
+            { text: '228', options: { fill: { color: 'E8F5E9' }, bold: true } },
+            { text: '1140', options: { fill: { color: 'E8F5E9' }, bold: true } },
+            { text: '100%', options: { fill: { color: 'E8F5E9' }, bold: true } }
+        ]
+    ], { 
+        x: 0.4, y: 3.75, w: 9.2, h: 0.6, 
+        colW: [2.3, 2.3, 2.3, 2.3], 
+        fontSize: 9, align: 'center', valign: 'middle', 
+        border: { pt: 0.5, color: 'E0E0E0' } 
+    });
+    
+    return slide;
+}
+
+/**
+ * 添加评估指标说明页
+ */
+function addMetricsExplanationSlide(pptx) {
+    const slide = createContentSlide(pptx, LABEL, '评估指标说明');
+    
+    // 核心指标卡片
+    const metrics = [
+        { 
+            name: 'mIoU', 
+            fullName: '平均交并比',
+            formula: 'mIoU = (1/k) Σ (TP/(TP+FP+FN))',
+            desc: '核心指标，衡量预测与真实区域的重叠程度。值越高表示分割越准确。',
+            color: COLORS.RED
+        },
+        { 
+            name: 'mAcc', 
+            fullName: '平均准确率',
+            formula: 'mAcc = (1/k) Σ (TP/(TP+FN))',
+            desc: '各类别准确率的平均值，反映分类正确性。',
+            color: COLORS.NAVY
+        },
+        { 
+            name: 'mDice', 
+            fullName: 'Dice系数',
+            formula: 'Dice = 2|A∩B| / (|A|+|B|)',
+            desc: '与IoU类似，更关注区域重叠，对不平衡数据敏感。',
+            color: COLORS.GREEN
+        },
+        { 
+            name: 'HD95', 
+            fullName: 'Hausdorff距离',
+            formula: 'HD95 = 95th percentile',
+            desc: '边界精度指标，衡量预测边界与真实边界的最大偏差，值越小越好。',
+            color: COLORS.RED
+        }
+    ];
+    
+    metrics.forEach((m, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const x = 0.4 + col * 4.7;
+        const y = 1 + row * 1.65;
+        
+        addWhiteBox(slide, pptx, x, y, 4.5, 1.55);
+        slide.addShape(pptx.shapes.RECTANGLE, { 
+            x, y, w: 0.04, h: 1.55, 
+            fill: { color: m.color } 
+        });
+        
+        // 指标名称
+        slide.addText(m.name, { 
+            x: x + 0.15, y: y + 0.05, w: 1.2, h: 0.35, 
+            fontFace: 'Arial', fontSize: 16, bold: true, color: m.color 
+        });
+        slide.addText(m.fullName, { 
+            x: x + 1.4, y: y + 0.1, w: 2.9, h: 0.25, 
+            fontFace: 'Arial', fontSize: 10, color: COLORS.SLATE 
+        });
+        
+        // 公式框
+        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { 
+            x: x + 0.15, y: y + 0.45, w: 4.2, h: 0.4, 
+            fill: { color: COLORS.OFFWHITE } 
+        });
+        slide.addText(m.formula, { 
+            x: x + 0.15, y: y + 0.45, w: 4.2, h: 0.4, 
+            align: 'center', valign: 'middle', 
+            fontFace: 'Times New Roman', fontSize: 10, color: COLORS.NAVY 
+        });
+        
+        // 说明
+        slide.addText(m.desc, { 
+            x: x + 0.15, y: y + 0.95, w: 4.2, h: 0.55, 
+            fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
+        });
+    });
+    
+    // 底部 - 效率指标
+    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { 
+        x: 0.4, y: 4.35, w: 9.2, h: 0.55, 
+        fill: { color: COLORS.NAVY } 
+    });
+    slide.addText('效率指标', { 
+        x: 0.6, y: 4.4, w: 1.2, h: 0.2, 
+        fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.WHITE 
+    });
+    slide.addText('Params（参数量）：模型复杂度   |   FPS（帧率）：推理速度，满足实时性要求（≥10 FPS）', { 
+        x: 0.6, y: 4.62, w: 8.8, h: 0.22, 
+        fontFace: 'Arial', fontSize: 9, color: COLORS.SILVER 
+    });
+    
+    return slide;
+}
+
+/**
  * 添加数据增强策略页
  */
 function addDataAugmentationSlide(pptx) {
@@ -222,13 +437,15 @@ function build(pptx) {
         'CNN基础组件与原理',
         '经典语义分割网络',
         'DeepLabV3+基线模型',
-        '数据集与预处理方法'
+        '数据集构建与评估指标'
     ]);
     
     // 内容页
     addCNNBasicsSlide(pptx);
     addClassicNetworksSlide(pptx);
     addDeepLabV3PlusSlide(pptx);
+    addDatasetConstructionSlide(pptx);  // 新增：数据集构建
+    addMetricsExplanationSlide(pptx);   // 新增：评估指标
     addDataAugmentationSlide(pptx);
 }
 
@@ -237,5 +454,7 @@ module.exports = {
     addCNNBasicsSlide,
     addClassicNetworksSlide,
     addDeepLabV3PlusSlide,
+    addDatasetConstructionSlide,
+    addMetricsExplanationSlide,
     addDataAugmentationSlide,
 };
