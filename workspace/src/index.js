@@ -78,7 +78,7 @@ function generatePPT() {
             console.log('第三章（TR模块）: 10页 ← 新增实验设置+可视化对比');
             console.log('第四章（SAE模块）: 8页 ← 完善HD95指标');
             console.log('第五章（总结展望）: 3页');
-            console.log('致谢 + Q&A: 2页');
+            console.log('Q&A: 1页');
             console.log('-------------------');
             console.log('总计: 约36页\n');
         })

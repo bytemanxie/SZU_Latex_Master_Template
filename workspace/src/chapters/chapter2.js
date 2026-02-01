@@ -14,25 +14,27 @@ const LABEL = `${CHAPTER.num} ${CHAPTER.title}`;
 function addCNNBasicsSlide(pptx) {
     const slide = createContentSlide(pptx, LABEL, 'CNN基础组件');
     
-    // 卷积层
+    // 卷积层（图片850x507，宽高比1.68:1）
     addWhiteBox(slide, pptx, 0.4, 1, 4.5, 2.1);
     slide.addText('卷积层 (Convolution)', { 
         x: 0.5, y: 1.05, w: 4.3, h: 0.28, 
         fontFace: 'Arial', fontSize: 11, bold: true, color: COLORS.RED 
     });
-    addPlaceholder(slide, pptx, 0.6, 1.38, 4.1, 1.0, '待补充：卷积操作示意图');
+    // 卷积操作示意图：w=3.0, h=3.0/1.68=1.79 → 太高，调整为 w=1.7, h=1.0
+    slide.addImage({ path: `${FIGURE_PATHS.cp2}/fig2-1_conv_operation.png`, x: 1.8, y: 1.35, w: 1.7, h: 1.0 });
     slide.addText('通过卷积核在输入特征图上滑动，提取局部特征。参数共享降低计算量，局部连接保留空间结构。', { 
         x: 0.5, y: 2.45, w: 4.3, h: 0.58, 
         fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
     });
     
-    // 池化层
+    // 池化层（图片517x451，宽高比1.15:1，接近正方形）
     addWhiteBox(slide, pptx, 5.1, 1, 4.5, 2.1);
     slide.addText('池化层 (Pooling)', { 
         x: 5.2, y: 1.05, w: 4.3, h: 0.28, 
         fontFace: 'Arial', fontSize: 11, bold: true, color: COLORS.RED 
     });
-    addPlaceholder(slide, pptx, 5.3, 1.38, 4.1, 1.0, '待补充：池化操作示意图');
+    // 池化操作示意图：w=1.15, h=1.0 保持比例
+    slide.addImage({ path: `${FIGURE_PATHS.cp2}/fig2-2_pooling_operation.png`, x: 6.7, y: 1.35, w: 1.15, h: 1.0 });
     slide.addText('下采样操作，降低特征图分辨率。最大池化保留显著特征，平均池化保留全局信息，增强平移不变性。', { 
         x: 5.2, y: 2.45, w: 4.3, h: 0.58, 
         fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
@@ -74,7 +76,7 @@ function addCNNBasicsSlide(pptx) {
 function addClassicNetworksSlide(pptx) {
     const slide = createContentSlide(pptx, LABEL, '经典语义分割网络');
     
-    // FCN
+    // FCN（图片428x222，宽高比1.93:1）
     addWhiteBox(slide, pptx, 0.4, 1, 4.5, 3.2);
     slide.addShape(pptx.shapes.RECTANGLE, { 
         x: 0.4, y: 1, w: 0.04, h: 3.2, 
@@ -88,13 +90,14 @@ function addClassicNetworksSlide(pptx) {
         x: 0.5, y: 1.35, w: 4.3, h: 0.2, 
         fontFace: 'Arial', fontSize: 9, color: COLORS.SLATE 
     });
-    addPlaceholder(slide, pptx, 0.6, 1.6, 4.2, 2.0, '待补充：FCN网络结构图');
+    // FCN结构图：宽高比1.93:1，设置 w=3.8, h=1.97
+    slide.addImage({ path: `${FIGURE_PATHS.cp2}/fig2-3_fcn_structure.png`, x: 0.7, y: 1.6, w: 3.8, h: 1.97 });
     slide.addText('• 将全连接层替换为卷积层  • 支持任意尺寸输入  • 跳跃连接融合多尺度特征', { 
         x: 0.5, y: 3.7, w: 4.3, h: 0.4, 
         fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
     });
     
-    // U-Net
+    // U-Net（图片906x675，宽高比1.34:1）
     addWhiteBox(slide, pptx, 5.1, 1, 4.5, 3.2);
     slide.addShape(pptx.shapes.RECTANGLE, { 
         x: 5.1, y: 1, w: 0.04, h: 3.2, 
@@ -108,7 +111,8 @@ function addClassicNetworksSlide(pptx) {
         x: 5.2, y: 1.35, w: 4.3, h: 0.2, 
         fontFace: 'Arial', fontSize: 9, color: COLORS.SLATE 
     });
-    addPlaceholder(slide, pptx, 5.3, 1.6, 4.1, 2.0, '待补充：U-Net网络结构图');
+    // UNet结构图：宽高比1.34:1，设置 w=2.68, h=2.0
+    slide.addImage({ path: `${FIGURE_PATHS.cp2}/fig2-4_unet_structure.png`, x: 5.95, y: 1.6, w: 2.68, h: 2.0 });
     slide.addText('• 对称编码器-解码器结构  • 跳跃连接保留细节信息  • 适合小样本医学图像分割', { 
         x: 5.2, y: 3.7, w: 4.3, h: 0.4, 
         fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
@@ -367,20 +371,6 @@ function addMetricsExplanationSlide(pptx) {
         });
     });
     
-    // 底部 - 效率指标
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { 
-        x: 0.4, y: 4.35, w: 9.2, h: 0.55, 
-        fill: { color: COLORS.NAVY } 
-    });
-    slide.addText('效率指标', { 
-        x: 0.6, y: 4.4, w: 1.2, h: 0.2, 
-        fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.WHITE 
-    });
-    slide.addText('Params（参数量）：模型复杂度   |   FPS（帧率）：推理速度，满足实时性要求（≥10 FPS）', { 
-        x: 0.6, y: 4.62, w: 8.8, h: 0.22, 
-        fontFace: 'Arial', fontSize: 9, color: COLORS.SILVER 
-    });
-    
     return slide;
 }
 
@@ -390,28 +380,25 @@ function addMetricsExplanationSlide(pptx) {
 function addDataAugmentationSlide(pptx) {
     const slide = createContentSlide(pptx, LABEL, '数据增强策略');
     
-    // 数据增强图像网格
+    // 数据增强图像网格（图片800x495，宽高比1.62:1）
     const augImages = [
         { file: 'fig2-9a_original.png', label: '(a) 原始图像' },
-        { file: null, label: '(b) 水平翻转', placeholder: '待补充：水平翻转图' },
+        { file: 'fig2-9b_hflip.png', label: '(b) 水平翻转' },
         { file: 'fig2-9c_rotate.png', label: '(c) 随机旋转' },
         { file: 'fig2-9d_brightness.png', label: '(d) 亮度调整' },
         { file: 'fig2-9e_contrast.png', label: '(e) 对比度调整' },
         { file: 'fig2-9f_noise.png', label: '(f) 添加噪声' }
     ];
     
-    const augW = 2.9, augH = 1.0;
+    // 保持宽高比1.62:1，w=2.6, h=1.0
+    const augW = 2.6, augH = 1.0;
     augImages.forEach((img, i) => {
         const col = i % 3;
         const row = Math.floor(i / 3);
-        const x = 0.5 + col * 3.1;
-        const y = 1.0 + row * 1.35;
+        const x = 0.7 + col * 3.0;
+        const y = 1.0 + row * 1.3;
         
-        if (img.file) {
-            slide.addImage({ path: `${FIGURE_PATHS.cp2}/${img.file}`, x, y, w: augW, h: augH });
-        } else {
-            addPlaceholder(slide, pptx, x, y, augW, augH, img.placeholder);
-        }
+        slide.addImage({ path: `${FIGURE_PATHS.cp2}/${img.file}`, x, y, w: augW, h: augH });
         slide.addText(img.label, { 
             x, y: y + augH + 0.02, w: augW, h: 0.2, 
             align: 'center', fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
@@ -420,7 +407,7 @@ function addDataAugmentationSlide(pptx) {
     
     // 底部总结
     addBottomBox(slide, pptx, {
-        x: 0.4, y: 3.55, w: 9.2, h: 0.85,
+        x: 0.4, y: 3.65, w: 9.2, h: 0.75,
         title: '数据增强目的',
         content: '扩充训练样本多样性，提高模型泛化能力。通过几何变换（翻转、旋转）和光度变换（亮度、对比度、噪声）模拟不同采集条件，增强模型对OCT图像变化的鲁棒性。'
     });

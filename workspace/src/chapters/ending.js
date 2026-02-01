@@ -101,7 +101,7 @@ function addQASlide(pptx) {
         x: 2.8, y: 3.6, w: 4.4, h: 0.6, 
         fill: { color: COLORS.SLATE, transparency: 50 } 
     });
-    slide.addText(`答辩人：${METADATA.author}  |  导师：${METADATA.advisor} 老师`, { 
+    slide.addText(`答辩人：${METADATA.author}  |  导师：${METADATA.advisor}`, { 
         x: 2.8, y: 3.6, w: 4.4, h: 0.6, 
         align: 'center', valign: 'middle', 
         fontFace: 'Arial', fontSize: 12, color: COLORS.WHITE 
@@ -114,7 +114,6 @@ function addQASlide(pptx) {
  * 构建结束页面
  */
 function build(pptx) {
-    addThanksSlide(pptx);
     addQASlide(pptx);
 }
 

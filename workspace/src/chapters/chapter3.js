@@ -19,13 +19,14 @@ const LABEL = `${CHAPTER.num} ${CHAPTER.title}`;
 function addDilatedConvSlide(pptx) {
     const slide = createContentSlide(pptx, LABEL, '空洞卷积原理');
     
-    // 空洞卷积对比图
-    addWhiteBox(slide, pptx, 0.4, 1, 9.2, 1.6);
+    // 空洞卷积对比图（图片850x329，宽高比2.58:1）
+    addWhiteBox(slide, pptx, 0.4, 1, 9.2, 1.85);
     slide.addText('不同空洞率的卷积对比', { 
         x: 0.5, y: 1.05, w: 9, h: 0.25, 
         align: 'center', fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.NAVY 
     });
-    slide.addImage({ path: `${FIGURE_PATHS.cp3}/fig3-1_dilated_conv.png`, x: 1.5, y: 1.35, w: 7, h: 1.15 });
+    // 保持宽高比2.58:1，w=3.6, h=1.4
+    slide.addImage({ path: `${FIGURE_PATHS.cp3}/fig3-1_dilated_conv.png`, x: 3.2, y: 1.35, w: 3.6, h: 1.4 });
     
     // 说明卡片
     const dilatedCards = [
@@ -36,24 +37,24 @@ function addDilatedConvSlide(pptx) {
     
     dilatedCards.forEach((card, i) => {
         const x = 0.4 + i * 3.15;
-        addWhiteBox(slide, pptx, x, 2.75, 3, 0.95);
+        addWhiteBox(slide, pptx, x, 3.0, 3, 0.85);
         slide.addShape(pptx.shapes.RECTANGLE, { 
-            x, y: 2.75, w: 0.04, h: 0.95, 
+            x, y: 3.0, w: 0.04, h: 0.85, 
             fill: { color: COLORS.RED } 
         });
         slide.addText(card.title, { 
-            x: x + 0.1, y: 2.8, w: 2.8, h: 0.28, 
+            x: x + 0.1, y: 3.05, w: 2.8, h: 0.25, 
             fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.NAVY 
         });
         slide.addText(card.desc, { 
-            x: x + 0.1, y: 3.1, w: 2.8, h: 0.55, 
+            x: x + 0.1, y: 3.32, w: 2.8, h: 0.5, 
             fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
         });
     });
     
     // 底部总结
     addBottomBox(slide, pptx, {
-        x: 0.4, y: 3.85, w: 9.2, h: 0.55,
+        x: 0.4, y: 4.0, w: 9.2, h: 0.45,
         title: null,
         content: '核心优势：在不增加参数量和计算量的情况下扩大感受野，捕获更大范围的上下文信息，适合密集预测任务。'
     });
@@ -200,7 +201,7 @@ function addTRModuleSlide(pptx) {
         x: 0.5, y: 1.05, w: 4.3, h: 0.25, 
         fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.RED 
     });
-    slide.addText('区域级路由 + 令牌级注意力两阶段计算，保持全局建模能力同时降低计算复杂度。', { 
+    slide.addText('区域级路由 + Token级注意力两阶段计算，保持全局建模能力同时降低计算复杂度。', { 
         x: 0.5, y: 1.32, w: 4.3, h: 0.48, 
         fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
     });
@@ -225,20 +226,6 @@ function addTRModuleSlide(pptx) {
         fontFace: 'Arial', fontSize: 8, color: COLORS.SLATE 
     });
     
-    // 参数配置框
-    slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { 
-        x: 0.4, y: 3.55, w: 4.5, h: 0.85, 
-        fill: { color: COLORS.NAVY } 
-    });
-    slide.addText('关键参数配置', { 
-        x: 0.5, y: 3.6, w: 4.3, h: 0.22, 
-        fontFace: 'Arial', fontSize: 9, bold: true, color: COLORS.WHITE 
-    });
-    slide.addText('输入维度: 2560 | 窗口大小: 4×4\nTopK: 4 | 窗口数: 16 | mIoU提升: +3.9%', { 
-        x: 0.5, y: 3.85, w: 4.3, h: 0.5, 
-        fontFace: 'Arial', fontSize: 9, color: COLORS.WHITE 
-    });
-    
     // 右侧 - TR模块结构图
     addWhiteBox(slide, pptx, 5.05, 1, 4.55, 3.4);
     slide.addText('TR模块结构图', { 
@@ -256,58 +243,30 @@ function addTRModuleSlide(pptx) {
 function addTRDetailSlide(pptx) {
     const slide = createContentSlide(pptx, LABEL, 'TR模块详细原理');
     
-    // 三个占位框
-    // 区域级路由
-    addWhiteBox(slide, pptx, 0.4, 1, 2.95, 2.3);
-    slide.addText('区域级路由', { 
-        x: 0.5, y: 1.05, w: 2.75, h: 0.25, 
-        align: 'center', fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.RED 
+    // 双层路由注意力示意图（图片2036x920，宽高比2.21:1）
+    addWhiteBox(slide, pptx, 0.4, 1, 9.2, 2.35);
+    slide.addText('双层路由注意力机制 (Bi-level Routing Attention)', { 
+        x: 0.5, y: 1.05, w: 9, h: 0.25, 
+        align: 'center', fontFace: 'Arial', fontSize: 11, bold: true, color: COLORS.NAVY 
     });
-    addPlaceholder(slide, pptx, 0.55, 1.35, 2.65, 1.5, '待补充：\n区域级路由示意图');
-    slide.addText('将特征图划分为S×S区域，计算区域间相关性', { 
-        x: 0.5, y: 2.9, w: 2.75, h: 0.35, 
-        align: 'center', fontFace: 'Arial', fontSize: 7, color: COLORS.SLATE 
-    });
-    
-    // 令牌级注意力
-    addWhiteBox(slide, pptx, 3.52, 1, 2.95, 2.3);
-    slide.addText('令牌级注意力', { 
-        x: 3.62, y: 1.05, w: 2.75, h: 0.25, 
-        align: 'center', fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.RED 
-    });
-    addPlaceholder(slide, pptx, 3.67, 1.35, 2.65, 1.5, '待补充：\n令牌级注意力计算图');
-    slide.addText('在选定区域内进行细粒度注意力计算', { 
-        x: 3.62, y: 2.9, w: 2.75, h: 0.35, 
-        align: 'center', fontFace: 'Arial', fontSize: 7, color: COLORS.SLATE 
-    });
-    
-    // Top-K稀疏选择
-    addWhiteBox(slide, pptx, 6.65, 1, 2.95, 2.3);
-    slide.addText('Top-K稀疏选择', { 
-        x: 6.75, y: 1.05, w: 2.75, h: 0.25, 
-        align: 'center', fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.RED 
-    });
-    addPlaceholder(slide, pptx, 6.8, 1.35, 2.65, 1.5, '待补充：\nTop-K选择策略图');
-    slide.addText('每个查询仅关注K个最相关区域', { 
-        x: 6.75, y: 2.9, w: 2.75, h: 0.35, 
-        align: 'center', fontFace: 'Arial', fontSize: 7, color: COLORS.SLATE 
-    });
+    // 保持宽高比2.21:1，w=8.0, h=3.62 → 调整为适合框高度 h=1.75, w=3.87
+    slide.addImage({ path: `${FIGURE_PATHS.cp3}/fig3-4_bilevel_attention.png`, x: 2.55, y: 1.38, w: 4.9, h: 1.85 });
     
     // 底部 - 计算流程
     slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { 
-        x: 0.4, y: 3.45, w: 9.2, h: 0.95, 
+        x: 0.4, y: 3.5, w: 9.2, h: 0.95, 
         fill: { color: COLORS.NAVY } 
     });
     slide.addText('双层路由注意力计算流程', { 
-        x: 0.6, y: 3.5, w: 8.8, h: 0.22, 
+        x: 0.6, y: 3.55, w: 8.8, h: 0.22, 
         fontFace: 'Arial', fontSize: 10, bold: true, color: COLORS.WHITE 
     });
-    slide.addText('输入特征 → 区域划分(S×S) → 区域级路由矩阵 → Top-K选择 → 令牌级注意力 → 特征聚合 → 输出特征', { 
-        x: 0.6, y: 3.75, w: 8.8, h: 0.25, 
+    slide.addText('输入特征 → 区域划分(S×S) → 区域级路由矩阵 → Top-K选择 → Token级注意力 → 特征聚合 → 输出特征', { 
+        x: 0.6, y: 3.8, w: 8.8, h: 0.25, 
         fontFace: 'Arial', fontSize: 9, color: COLORS.GREEN 
     });
     slide.addText('复杂度：O(S²HW/S² + K·HW·C) = O(HW(S² + KC))，相比全局注意力O(H²W²)显著降低', { 
-        x: 0.6, y: 4.05, w: 8.8, h: 0.25, 
+        x: 0.6, y: 4.1, w: 8.8, h: 0.25, 
         fontFace: 'Arial', fontSize: 8, color: COLORS.WHITE 
     });
     
@@ -335,8 +294,7 @@ function addExperimentSetupSlide(pptx) {
         ['GPU', 'NVIDIA RTX 4090 (24GB)'],
         ['CPU', 'Intel i7-13700KF'],
         ['内存', '64GB DDR5'],
-        ['深度学习框架', 'PyTorch 1.13 + CUDA 11.7'],
-        ['分割框架', 'MMSegmentation 0.x']
+        ['深度学习框架', 'PyTorch 1.13 + CUDA 11.7']
     ], { 
         x: 0.4, y: 1.35, w: 4.4, h: 2.1, 
         colW: [1.6, 2.8], 

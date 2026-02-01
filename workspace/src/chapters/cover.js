@@ -43,7 +43,7 @@ function addCoverSlide(pptx) {
     });
     
     // 答辩人信息
-    slide.addText(`答辩人：${METADATA.author}        导师：${METADATA.advisor} 老师`, { 
+    slide.addText(`答辩人：${METADATA.author}        导师：${METADATA.advisor}`, { 
         x: 0, y: 3.9, w: '100%', h: 0.4, 
         align: 'center', 
         fontFace: 'Arial', fontSize: 14, color: COLORS.WHITE 
