@@ -104,3 +104,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Node.js
+workspace/node_modules/
+
