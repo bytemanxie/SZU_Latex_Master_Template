@@ -11,8 +11,9 @@ const { COLORS, STYLES } = require('./config');
  * @param {string} num - 章节编号，如 '01'
  * @param {string} title - 章节标题
  * @param {Array} highlights - 本章要点列表
+ * @param {string} notes - 可选的演讲稿
  */
-function addChapterEntry(pptx, num, title, highlights = []) {
+function addChapterEntry(pptx, num, title, highlights = [], notes = '') {
     const slide = pptx.addSlide();
     slide.background = { color: COLORS.NAVY };
     
@@ -52,6 +53,11 @@ function addChapterEntry(pptx, num, title, highlights = []) {
                 fontFace: 'Arial', fontSize: 14, color: COLORS.SILVER 
             });
         });
+    }
+    
+    // 添加演讲稿
+    if (notes) {
+        slide.addNotes(notes);
     }
     
     return slide;
