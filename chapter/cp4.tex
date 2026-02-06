@@ -38,7 +38,7 @@
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.9\textwidth]{figure/cp4/sae_diagram/fig4-1_sae_module_horizontal.png}
+\fbox{\parbox{0.88\textwidth}{\centering\vspace{3cm}{\heiti\zihao{5} [占位图：SAE模块结构图]}\par\texttt{figure/cp4/sae\_diagram/fig4-1\_sae\_module\_horizontal.png}\vspace{3cm}}}
 \caption{SAE模块结构图（输入通道 C=560，Reduction r=4）}
 \label{fig:sae_structure}
 \end{figure}
@@ -97,25 +97,9 @@ SAE 模块并非简单组合坐标注意力（CA）\upcite{hou2021coordinateatte
 
 （2）\textbf{双路径增强架构}。不同于 CA 或 SE 的单一注意力路径，本文设计"坐标注意力→特征精炼→通道注意力"的级联结构，先通过坐标注意力编码空间位置信息，再通过特征卷积层融合邻域上下文，最后通过通道注意力突出判别性特征，实现空间与通道维度的逐级增强。这种级联设计使后续模块能够在前一模块增强的特征基础上进一步优化，产生累积的增益效应。
 
-（3）\textbf{多分支通道注意力设计}。原始 SE 采用单一全连接层路径，本文在通道注意力分支中设计 4 个并行全连接层，分别捕捉不同的通道依赖模式后进行融合，增强了通道间特征交互的多样性。表~\ref{tab:channel_branch_ablation}~给出了不同分支数量的消融实验结果。
+（3）\textbf{多分支通道注意力设计}。原始 SE 采用单一全连接层路径，本文在通道注意力分支中设计 4 个并行全连接层，分别捕捉不同的通道依赖模式后进行融合，增强了通道间特征交互的多样性。
 
-\begin{table}[htbp]
-\centering
-\caption{通道注意力分支数量消融实验}
-\label{tab:channel_branch_ablation}
-\begin{tabular}{cccc}
-\toprule
-分支数量 & mIoU & 目标IoU & 参数增量 \\
-\midrule
-1（原始SE） & 0.894 & 0.796 & +20M \\
-2 & 0.898 & 0.804 & +22M \\
-\textbf{4} & \textbf{0.901} & \textbf{0.810} & +25M \\
-8 & 0.899 & 0.806 & +31M \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-上述三点设计创新使 SAE 模块能够有效应对 OCT 图像的边界模糊问题，在保持轻量化（仅增加 25M 参数）的同时实现显著的边界精度提升（HD95 降低 6.3\%）。
+上述三点设计创新使 SAE 模块能够有效应对 OCT 图像的边界模糊问题，在保持轻量化的同时实现显著的边界精度提升。
 
 \subsubsection{SAE模块集成方式}
 
@@ -277,48 +261,6 @@ DeepLabV3+ + SAE & 11.45 & 优秀 \\
 \end{table}
 
 由表~\ref{tab:boundary}~可知，本文方法的 HD95 指标达到 10.68，相比基线模型（12.22）降低 12.6\%。HD95 值越小，表示边界分割越精确。值得注意的是，单独使用 SAE 模块时，HD95 为 11.45，已经取得了较好的边界精度；结合 TR 模块后，HD95 进一步降低至 10.68，说明双重注意力机制在边界精度提升方面具有协同效应。
-
-\subsubsection{统计显著性分析}
-
-为验证本文方法的性能提升是必然而非偶然，本节通过多次独立训练和统计假设检验分析改进的显著性。
-
-（1）多次独立训练实验。
-
-采用不同的随机种子进行 5 次独立训练，统计各配置的 mIoU 均值和标准差，结果如表~\ref{tab:significance}~所示。
-
-\begin{table}[htbp]
-\centering
-\caption{多次独立训练的统计结果}
-\label{tab:significance}
-\begin{tabular}{lcc}
-\toprule
-模型配置 & mIoU（均值 $\pm$ 标准差） & 95\% 置信区间 \\
-\midrule
-DeepLabV3+ (基线) & $0.851 \pm 0.008$ & $[0.841, 0.861]$ \\
-DeepLabV3+ + TR & $0.884 \pm 0.006$ & $[0.877, 0.891]$ \\
-DeepLabV3+ + SAE & $0.901 \pm 0.005$ & $[0.895, 0.907]$ \\
-本文方法 & $0.911 \pm 0.004$ & $[0.906, 0.916]$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-由表~\ref{tab:significance}~可知，本文方法在 5 次独立训练中表现稳定，mIoU 标准差仅为 0.004，显著低于基线模型的 0.008，说明改进方法不仅提升了性能，还增强了训练稳定性。此外，各配置的 95\% 置信区间无重叠，表明性能差异具有统计显著性。
-
-（2）配对 t 检验。
-
-为进一步验证改进的统计显著性，对基线模型与本文方法的 5 次训练结果进行配对 t 检验。原假设 $H_0$：两种方法的 mIoU 无显著差异；备择假设 $H_1$：本文方法的 mIoU 显著高于基线模型。
-
-检验结果表明，t 统计量为 15.23，自由度为 4，对应的 p 值小于 0.001（$p < 0.001$），远低于显著性水平 $\alpha = 0.05$。因此，拒绝原假设，认为本文方法相比基线模型的性能提升具有统计显著性。
-
-（3）改进必然性分析。
-
-本文方法性能提升的必然性可从以下三个方面解释：
-
-\ding{172}~问题针对性：TR 模块和 SAE 模块分别针对 OCT 图像的全局结构理解不足和局部边界感知不足问题设计，而非随意堆叠通用模块；
-
-\ding{173}~机制互补性：TR 模块在编码器端建立长程依赖关系，SAE 模块在解码器端增强空间位置感知，两者在网络的不同阶段发挥作用，形成互补；
-
-\ding{174}~实验一致性：在不同随机种子、不同训练/测试划分下，本文方法均稳定优于基线模型，排除了偶然性因素的影响。
 
 \subsubsection{可视化分析}
 
