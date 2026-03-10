@@ -25,7 +25,7 @@ echo "正在编译（latexmk 会自动处理所有步骤）..."
 latexmk -xelatex -interaction=nonstopmode master_pang.tex
 
 # 定义最终输出文件名
-FINAL_PDF_NAME="基于改进DeepLabV3+的OCT图像语义分割方法.pdf"
+FINAL_PDF_NAME="激光焊接OCT图像重建与语义分割方法研究.pdf"
 
 if [ $? -eq 0 ]; then
     echo ""
