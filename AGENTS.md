@@ -52,6 +52,12 @@ Usage notes:
 </skill>
 
 <skill>
+<name>humanizer-zh</name>
+<description>Removes AI writing patterns from Chinese or mixed text for a natural, human voice; based on Wikipedia "Signs of AI writing" patterns. Detects grand symbolism, hype, trailing -ing phrases, vague attribution, em dash abuse, rule of three, AI buzzwords, not-X-but-Y parallelism, filler connectors. Use when editing or reviewing text, de-AI-ing, thesis polish, or when the user mentions 去 AI 味, 论文润色, 审阅改写, 人机感, or humanizing prose.</description>
+<location>project</location>
+</skill>
+
+<skill>
 <name>frontend-design</name>
 <description>Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics.</description>
 <location>project</location>
