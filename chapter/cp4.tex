@@ -1,40 +1,208 @@
 \clearpage
 
-\section{基于空间感知增强的 DeepLabV3+模型优化}
+\section{基于双重注意力机制的 OCT 图像语义分割方法}
 
-第三章从编码器端出发，通过引入 TR（Transformer Routing）全局注意力模块，有效增强了模型对长距离依赖关系的建模能力，使 mIoU 从 0.851 提升至 0.884。然而，对分割结果的深入分析表明，TR 模块虽然显著提升了模型对细长结构整体形态的理解能力，但在边界区域的细节表达方面仍存在不足：边界轮廓不够清晰、局部出现不连续、边界定位精度（HD95）有待优化。
+第三章实现了 OCT 干涉谱到深度图像的 GPU 加速重建，为在线监测提供了实时的图像数据来源。在此基础上，本章聚焦于从深度图像中自动提取熔深区域的语义分割问题。
 
-上述问题的根本原因在于 TR 模块与解码器之间存在"语义鸿沟"：TR 模块位于编码器端的 ASPP 输出之后，其全局建模能力主要作用于 16×16 的高层语义特征图；而解码器在将特征图从 16×16 逐步上采样至 512×512 的过程中，仅通过简单的特征拼接融合高低层信息，缺乏对空间位置关系的显式建模。因此，编码器端习得的全局结构理解能力难以有效传递至解码器的边界细节恢复环节。
+激光焊接过程中，熔深是评估焊接质量的关键指标。传统的熔深测量依赖破坏性金相检测或人工目视检查，效率低下且无法在线进行。OCT 图像为非接触式熔深检测提供了途径，但其散斑噪声强、对比度低、边界模糊的特点，使得熔深区域的自动化提取面临挑战。
 
-基于上述分析，本章聚焦于解码器端的空间位置感知问题，提出空间感知增强（Spatial Awareness Enhancement, SAE）模块。该模块的设计灵感来源于坐标注意力机制\upcite{hou2021coordinateattentionefficientmobile}，通过沿水平和垂直两个方向分别进行特征聚合，显式建模特征图的空间位置关系，从而增强模型对目标边界和细节区域的感知能力。SAE 模块被集成于解码器的高低层特征融合阶段，与第三章提出的 TR 模块形成"编码重结构、解码重细节"的互补架构。本章将 SAE 模块与 TR 模块相结合，构建完整的 DeepLabV3+ + TR + SAE 改进模型，并通过消融实验、统计显著性分析和对比实验验证双重注意力机制的协同效应。
+本章以 DeepLabV3+ 为基线模型，针对 OCT 图像的两个核心问题——全局上下文建模不足和边界定位不精确——提出了两个功能互补的注意力模块：TR（Transformer Routing）全局注意力模块和 SAE（Spatial Awareness Enhancement）空间感知增强模块。TR 模块嵌入编码器端 ASPP 输出之后，通过双层路由注意力建立长距离依赖关系，解决细长结构的断裂分割问题；SAE 模块集成于解码器端，通过坐标注意力显式建模空间位置关系，提升边界分割精度。两个模块形成"编码重结构、解码重细节"的互补架构。
 
-本章结构如下：4.1 节详细介绍 SAE 模块的设计动机、原理与集成方式；4.2 节阐述改进模型的整体结构和各模块的协同机制；4.3 节通过消融实验、对比实验、可视化分析和效率分析全面验证所提方法的有效性；4.4 节对本章内容进行总结。
+本章结构如下：4.1 节介绍 DeepLabV3+ 基线模型；4.2 节设计 TR 全局注意力模块；4.3 节设计 SAE 空间感知增强模块；4.4 节给出改进模型的整体结构与各模块的协同机制；4.5 节通过消融实验、对比实验、可视化分析和效率分析验证所提方法的有效性；4.6 节总结本章内容。
 
-\subsection{空间感知增强模块（SAE）的设计}
+\subsection{DeepLabV3+基线模型}
 
-本节详细介绍空间感知增强模块的设计动机、原理与集成方式。SAE 模块通过引入坐标注意力机制，显式建模特征图的空间位置关系，从而增强模型对目标边界的感知能力。
+DeepLabV3+ 由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}，结合空洞卷积、ASPP 模块和编码器-解码器结构，在多尺度上下文信息捕获方面表现出色。DeepLabV3+ 的整体网络结构已在第二章图~\ref{fig:deeplabv3plus_structure}~中详细展示。
+
+\subsubsection{空洞卷积}
+
+空洞卷积（Atrous Convolution）通过在卷积核的相邻元素之间插入空洞（零值），在不增加计算量的前提下扩大感受野。空洞卷积的示意图如图~\ref{fig:dilated_conv}~所示。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{figure/cp3/fig3-1_dilated_conv.png}
+\caption{空洞卷积示意图\upcite{Patel2021Atrous}}
+\label{fig:dilated_conv}
+\end{figure}
+
+设输入特征图为 $\mathbf{F}$，空洞卷积核为 $\mathbf{W}$，空洞率为 $r$，则空洞卷积的输出可表示为：
+\begin{equation}
+\mathbf{O}[i, j] = \sum_{m} \sum_{n} \mathbf{F}[i + r \cdot m, j + r \cdot n] \cdot \mathbf{W}[m, n]
+\label{eq:dilated_conv}
+\end{equation}
+其中，$(i, j)$ 表示输出特征图的位置坐标，$(m, n)$ 表示卷积核的索引。当 $r = 1$ 时退化为标准卷积；当 $r > 1$ 时，有效感受野扩大为 $(2r - 1) \times k + 1$，$k$ 为卷积核原始尺寸。
+
+\subsubsection{ASPP模块}
+
+ASPP（Atrous Spatial Pyramid Pooling）模块通过多个不同空洞率的并行分支捕获多尺度上下文信息\upcite{Chen2017DeepLabV3}，结构如图~\ref{fig:aspp_module}~所示。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-2_aspp_module.png}
+\caption{ASPP模块结构图}
+\label{fig:aspp_module}
+\end{figure}
+
+本文采用深度可分离 ASPP 模块，包含 5 个并行分支：1×1 卷积、3×3 空洞卷积（dilation 分别为 12、24、36）和全局平均池化。5 个分支的输出在通道维度拼接后，通过 1×1 卷积降维融合。深度可分离卷积将标准卷积分解为深度卷积和点卷积两步，参数量和计算量大幅降低。
+
+\subsubsection{编码器-解码器结构}
+
+编码器采用 ResNet18-V1c 作为骨干网络\upcite{He2015ResNet,wu2016widerdeeper}，使用 Deep Stem 结构（三个 3×3 卷积替代 7×7 卷积）。选择 ResNet18 而非更深的 ResNet50/101，基于三点考虑：训练集仅 912 张图像，过深网络易过拟合；OCT 图像纹理结构相对简单（二分类任务）；工业在线监测要求推理速度快。表~\ref{tab:backbone_comparison}~的消融实验验证了这一选择。
+
+\begin{table}[htbp]
+\centering
+\caption{骨干网络消融实验}
+\label{tab:backbone_comparison}
+\begin{tabular}{ccccc}
+\toprule
+骨干网络 & mIoU & 目标IoU & 参数量 & 备注 \\
+\midrule
+\textbf{ResNet18-V1c} & \textbf{0.884} & \textbf{0.776} & 396M & 本文选择 \\
+ResNet50-V1c & 0.878 & 0.764 & 456M & 轻微过拟合 \\
+ResNet101-V1c & 0.871 & 0.751 & 538M & 过拟合明显 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+解码器通过上采样和特征融合恢复空间分辨率：ASPP 输出的高层特征经双线性插值上采样，与编码器浅层特征（经 1×1 卷积降维后）在通道维度拼接，再经深度可分离卷积和 1×1 卷积输出像素级预测结果。
+
+\subsection{TR 全局注意力模块设计}
 
 \subsubsection{改进动机}
 
-在语义分割任务中，精确的边界定位是实现高质量分割的关键。对于焊接 OCT 图像而言，熔深区域往往呈现细长结构，边界对比度低且常受散斑噪声干扰，这对模型的边界分割能力提出了更高要求。
+ASPP 模块的感受野受限于空洞卷积的局部性，仅覆盖特征图的局部区域。而 OCT 图像中的熔深区域呈现细长结构（纵横比可达 1:10 以上），跨越图像多个区域，需要网络理解整个图像的空间关系才能准确分割。ASPP 的局部感受野可能导致细长结构的断裂或误分割。
 
-传统的解码器设计主要关注多尺度特征融合，通过跳跃连接将编码器的低层特征与解码器的高层特征进行拼接或相加。虽然这种设计能够恢复空间细节信息，但存在以下局限性：
+表~\ref{tab:oct_module_relation}~总结了 OCT 图像特点与本文模块设计的对应关系。
 
-（1）空间位置信息丢失：在编码过程中，多次下采样操作导致空间位置信息逐渐丢失。虽然解码器通过上采样恢复空间分辨率，但位置信息的恢复程度有限。
+\begin{table}[htbp]
+\centering
+\caption{OCT图像特点与模块设计的对应关系}
+\label{tab:oct_module_relation}
+\begin{tabular}{p{2.5cm}p{4.5cm}p{4.5cm}}
+\toprule
+\textbf{OCT图像特点} & \textbf{对分割任务的影响} & \textbf{本文解决方案} \\
+\midrule
+散斑噪声强 & 局部特征不稳定，影响边界识别 & TR模块的区域级路由在窗口平均后计算相似度，抑制局部噪声干扰 \\
+\midrule
+目标细长 & 纵横比高，跨越多区域，易断裂 & TR模块的长程依赖建模使网络理解细长结构的整体连续性 \\
+\midrule
+边界模糊 & 对比度低，边界定位困难 & SAE模块的坐标注意力显式编码空间位置，增强边界特征响应 \\
+\midrule
+类别不平衡 & 背景占比90\%以上，前景学习不充分 & BCE+Dice混合损失函数 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-（2）通道权重均匀分配：传统解码器对所有通道采用均匀权重，未能区分不同通道对边界分割的贡献差异。实际上，某些通道可能包含更丰富的边界信息，应当给予更高权重。
+\subsubsection{双层路由注意力机制}
 
-（3）缺乏方向性感知：对于细长结构的目标，其在水平和垂直方向上的特征分布存在显著差异。传统解码器缺乏对这种方向性差异的显式建模能力。
+TR 模块受 BiFormer 的双层路由注意力思想启发\upcite{zhu2023biformervisiontransformerbilevel}，通过区域级路由和 TopK 选择机制，仅对最相关的窗口进行注意力计算，将计算复杂度从 $O(n^2)$ 降低到 $O(n^2 \times k/p^2)$。工作流程如图~\ref{fig:bilevel_attention}~所示。
 
-为了解决上述问题，本文提出在解码器端引入空间感知增强模块，通过坐标注意力机制显式建模特征图的空间位置关系，增强模型对目标边界和细节区域的感知能力。
+\begin{figure}[htbp]
+\centering
+\fbox{\parbox{0.88\textwidth}{\centering\vspace{3cm}{\heiti\zihao{5} [占位图：TR模块结构图]}\par\texttt{figure/cp3/fig3-3\_tr\_module\_horizontal.png}\vspace{3cm}}}
+\caption{TR模块结构图（窗口大小 S=4，窗口数量 S\textsuperscript{2}=16，TopK=4）}
+\label{fig:tr_module}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-4_bilevel_attention.png}
+\caption{双层路由注意力机制示意图（窗口大小：4×4，窗口数量：16，TopK=4）}
+\label{fig:bilevel_attention}
+\end{figure}
+
+步骤一，窗口划分。将输入特征图按固定窗口大小划分。
+
+步骤二，区域级路由。对每个窗口内的特征向量求平均，得到区域级查询和键向量：
+\begin{equation}
+\mathbf{Q}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{Q}_j, \quad \mathbf{K}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{K}_j
+\label{eq:region_qk}
+\end{equation}
+
+计算窗口间相似度：
+\begin{equation}
+\mathbf{S}_{ij} = \frac{\mathbf{Q}_{\text{region}}^{(i)} \cdot \mathbf{K}_{\text{region}}^{(j)}}{\|\mathbf{Q}_{\text{region}}^{(i)}\| \times \|\mathbf{K}_{\text{region}}^{(j)}\|}
+\label{eq:routing_similarity}
+\end{equation}
+
+步骤三，TopK 路由选择。每个窗口选择 4 个最相关的窗口：
+\begin{equation}
+\mathcal{R}_i = \text{TopK}(\mathbf{S}_{i,:}, k=4)
+\label{eq:topk_routing}
+\end{equation}
+
+步骤四，细粒度注意力。仅对选定窗口进行像素级注意力计算：
+\begin{equation}
+\text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\mathcal{R}_i}, \mathbf{V}_{\mathcal{R}_i}) = \text{softmax}\left(\frac{\mathbf{Q}_i \mathbf{K}_{\mathcal{R}_i}^T}{\sqrt{d_k}}\right) \mathbf{V}_{\mathcal{R}_i}
+\label{eq:fine_attention}
+\end{equation}
+
+\subsubsection{TR模块与BiFormer的差异}
+
+本文针对 OCT 图像特点进行了三点适配：（1）利用窗口平均操作固有的噪声平滑效应，使区域路由在散斑噪声下仍能稳定选择语义相关的窗口；（2）通过消融实验（表~\ref{tab:topk_ablation}）确定 TopK=4 即可覆盖细长结构的关键区域，继续增大反而引入背景噪声；（3）将 TR 模块嵌入 ASPP 输出之后而非作为独立骨干，利用 ASPP 已捕获的多尺度特征实现"多尺度+长程依赖"的互补。
+
+\begin{table}[htbp]
+\centering
+\caption{TopK值消融实验}
+\label{tab:topk_ablation}
+\begin{tabular}{cccc}
+\toprule
+TopK值 & mIoU & 目标IoU & 备注 \\
+\midrule
+2 & 0.871 & 0.751 & 上下文不足 \\
+\textbf{4} & \textbf{0.884} & \textbf{0.776} & 本文选择 \\
+8 & 0.879 & 0.766 & 引入背景噪声 \\
+16 & 0.872 & 0.752 & 噪声影响显著 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{混合损失函数设计}
+
+OCT 图像中背景占 90\% 以上像素。单独使用交叉熵损失时，背景像素主导梯度方向；单独使用 Dice 损失时，训练早期梯度不稳定。本文将二者结合：
+\begin{equation}
+L_{\text{BCE}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\sigma(p_i)) + (1-y_i) \log(1-\sigma(p_i)) \right]
+\label{eq:bce_loss}
+\end{equation}
+\begin{equation}
+L_{\text{Dice}} = 1 - \frac{2 \sum_{i=1}^{N} \sigma(p_i) \cdot y_i + \epsilon}{\sum_{i=1}^{N} \sigma(p_i) + \sum_{i=1}^{N} y_i + \epsilon}
+\label{eq:dice_loss}
+\end{equation}
+\begin{equation}
+L_{\text{total}} = \lambda_1 \cdot L_{\text{BCE}} + \lambda_2 \cdot L_{\text{Dice}}
+\label{eq:total_loss}
+\end{equation}
+
+表~\ref{tab:loss_ablation}~的消融实验表明 $\lambda_1=\lambda_2=2.0$ 时取得最优性能。
+
+\begin{table}[htbp]
+\centering
+\caption{损失函数权重消融实验}
+\label{tab:loss_ablation}
+\begin{tabular}{cccccc}
+\toprule
+$\lambda_1$ (BCE) & $\lambda_2$ (Dice) & mIoU & 目标IoU & mAcc & mDice \\
+\midrule
+1.0 & 0.0 & 0.832 & 0.673 & 0.891 & 0.895 \\
+0.0 & 1.0 & 0.845 & 0.698 & 0.903 & 0.908 \\
+1.0 & 1.0 & 0.862 & 0.732 & 0.918 & 0.921 \\
+\textbf{2.0} & \textbf{2.0} & \textbf{0.884} & \textbf{0.776} & \textbf{0.941} & \textbf{0.935} \\
+3.0 & 3.0 & 0.879 & 0.766 & 0.936 & 0.931 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{SAE 空间感知增强模块设计}
+
+\subsubsection{改进动机}
+
+TR 模块在编码器端增强了全局结构理解，但解码器在恢复空间分辨率时仅通过简单的特征拼接融合高低层信息，缺乏对空间位置关系的显式建模。编码器端的全局信息难以传递至解码器的边界细节恢复环节，导致边界轮廓模糊、局部不连续。
+
+传统解码器存在三个局限：多次下采样导致空间位置信息丢失，恢复有限；所有通道均匀加权，未区分边界通道与非边界通道的贡献差异；缺乏对细长结构在水平和垂直方向上特征分布差异的方向性建模。
 
 \subsubsection{SAE模块原理与结构}
 
-注意力机制致力于模拟人类的视觉与认知系统，使网络能够智能地区分数据中主要与次要的部分，进而将注意力聚焦于关键信息之上。在深度学习领域，通道注意力机制通过学习通道间的依赖关系，能够有效增强模型对关键特征的关注度。其中，SE（Squeeze-and-Excitation）注意力机制\upcite{hu2019squeezeandexcitationnetworks}是通道注意力的经典代表，其核心思想在于通过全局平均池化压缩空间信息，再通过全连接层学习通道间的权重关系，最终对各通道进行自适应重标定。SE 机制主要由三个步骤组成：压缩（Squeeze）步骤采用全局平均池化操作，将 $H \times W \times C$ 的特征图压缩为 $1 \times 1 \times C$ 的通道描述符；激活（Excitation）步骤通过两个全连接层学习通道间的非线性依赖关系；标准化（Scale）步骤根据学习到的权重对原特征图的各通道进行缩放。
-
-尽管 SE 机制在提升模型性能方面取得了显著成果，但它存在一个关键局限：全局池化将空间信息压缩为单一的通道描述符，因此难以保留位置信息，而位置信息对于语义分割任务中捕捉空间结构至关重要。针对这一问题，Hou 等人\upcite{hou2021coordinateattentionefficientmobile}提出了坐标注意力（Coordinate Attention, CA）机制，通过将二维全局池化解耦为一对一维特征编码操作，在保留位置信息的同时实现通道注意力的功能。
-
-本文设计的 SAE（Spatial Awareness Enhancement）模块针对 OCT 图像边界模糊问题，在坐标注意力与通道注意力的基础上进行了针对性的架构设计，其结构如图~\ref{fig:sae_structure}~所示。如图所示，SAE 模块由三部分组成：坐标注意力分支、特征卷积层和通道注意力分支。整体工作流程可细分为坐标信息嵌入、坐标注意力生成、特征精炼和通道增强四个阶段。
+SAE 模块在坐标注意力（CA）\upcite{hou2021coordinateattentionefficientmobile}与 SE 通道注意力\upcite{hu2019squeezeandexcitationnetworks}的基础上进行了针对性架构设计，由坐标注意力分支、特征卷积层和通道注意力分支三部分组成，结构如图~\ref{fig:sae_structure}~所示。
 
 \begin{figure}[htbp]
 \centering
@@ -43,75 +211,40 @@
 \label{fig:sae_structure}
 \end{figure}
 
-（1）坐标信息嵌入
-
-为赋予注意力模块在水平与垂直两个方向上的位置感知能力，SAE 模块首先将全局池化解耦为两个一维特征编码过程。具体而言，采用大小为 $(H, 1)$ 和 $(1, W)$ 的池化核对每个通道沿两个方向分别进行池化。给定输入特征图 $X \in \mathbb{R}^{C \times H \times W}$，对于高度为 $h$ 的第 $c$ 个通道，其水平方向的输出为：
+（1）坐标信息嵌入。将全局池化解耦为两个一维操作。给定输入 $X \in \mathbb{R}^{C \times H \times W}$，分别沿水平和垂直方向聚合：
 \begin{equation}
-z_c^h(h) = \frac{1}{W}\sum_{0 \leq i < W} x_c(h, i)
+z_c^h(h) = \frac{1}{W}\sum_{0 \leq i < W} x_c(h, i), \quad z_c^w(w) = \frac{1}{H}\sum_{0 \leq j < H} x_c(j, w)
 \end{equation}
-对于宽度为 $w$ 的第 $c$ 个通道，其垂直方向的输出为：
-\begin{equation}
-z_c^w(w) = \frac{1}{H}\sum_{0 \leq j < H} x_c(j, w)
-\end{equation}
+$z^h \in \mathbb{R}^{C \times H \times 1}$ 和 $z^w \in \mathbb{R}^{C \times 1 \times W}$ 分别保留了水平和垂直方向的位置信息。
 
-其中，$z^h \in \mathbb{R}^{C \times H \times 1}$ 和 $z^w \in \mathbb{R}^{C \times 1 \times W}$ 分别表示水平和垂直方向的聚合特征。与 SE 机制采用的全局平均池化不同，上述两个变换分别沿着水平和垂直方向对特征进行聚合，生成了一对能够感知方向和位置的特征图。这两个特征图不仅嵌入了特定方向的空间信息，而且能够捕获输入特征图在各自方向上的长程依赖关系。
-
-（2）坐标注意力生成
-
-坐标注意力的生成遵循三大原则：追求简单高效与灵活性，充分利用精确位置信息以定位感兴趣区域，以及有效捕捉通道间的相互关系。为实现这些目标，SAE 模块将前一步生成的两个特征图沿空间维度拼接，并通过共享的 $1 \times 1$ 卷积进行处理，生成包含水平与垂直方向空间信息的中间特征图 $f$：
+（2）坐标注意力生成。将两个方向的特征图拼接后通过共享 $1 \times 1$ 卷积处理：
 \begin{equation}
 f = \delta(F_{1 \times 1}([z^h, z^w]))
 \end{equation}
-
-其中，$[\cdot, \cdot]$ 表示沿空间维度的拼接操作，$\delta$ 表示 BatchNorm 和非线性激活函数。随后，中间特征图 $f$ 沿空间维度被切分为 $f^h$ 和 $f^w$ 两个张量，再分别通过两个独立的 $1 \times 1$ 卷积 $F_h$ 和 $F_w$ 进行变换，使输出通道数与输入特征图相匹配：
+再沿空间维度切分并分别通过独立的 $1 \times 1$ 卷积和 Sigmoid 激活生成方向性权重：
 \begin{equation}
 g^h = \sigma(F_h(f^h)), \quad g^w = \sigma(F_w(f^w))
 \end{equation}
 
-其中，$\sigma$ 表示 Sigmoid 激活函数，$g^h \in \mathbb{R}^{C \times H \times 1}$ 和 $g^w \in \mathbb{R}^{C \times 1 \times W}$ 分别表示水平和垂直方向的注意力权重。如图~\ref{fig:sae_structure}~上半部分所示，坐标注意力分支首先通过 X Avg Pool 和 Y Avg Pool 分别沿水平和垂直方向聚合特征，然后经过拼接、卷积、归一化和非线性激活后分裂为两个分支，各自通过独立的 $1 \times 1$ 卷积和 Sigmoid 激活生成方向性注意力权重，最后通过 Re-weight 操作对输入特征进行空间重标定。
-
-（3）特征重标定与残差连接
-
-将生成的注意力权重 $g^h$ 和 $g^w$ 应用于输入特征图的每个通道，允许根据全局信息调整每个空间位置的特征响应。坐标注意力的输出由下式给出：
+（3）特征重标定。将注意力权重作用于输入特征图：
 \begin{equation}
 y_c(i, j) = x_c(i, j) \times g_c^h(i) \times g_c^w(j)
 \end{equation}
+输出通过残差连接与输入相加。
 
-其中，$y_c(i, j)$ 表示输出特征图第 $c$ 个通道在位置 $(i, j)$ 处的值。如图~\ref{fig:sae_structure}~所示，坐标注意力分支的输出与输入通过残差连接相加，保留原始特征信息的同时融入空间位置感知能力。
+（4）特征精炼。经过两层 $3 \times 3$ 卷积（含 BN 和 ReLU），进一步融合邻域上下文，输出同样通过残差连接。
 
-（4）特征精炼
-
-经过坐标注意力增强后的特征进入两层 $3 \times 3$ 卷积模块，每层包含卷积、批归一化和 ReLU 激活函数，用于进一步精炼和融合特征表示。该模块的输出同样通过残差连接与输入相加，如图~\ref{fig:sae_structure}~中间部分所示。
-
-（5）通道注意力增强
-
-如图~\ref{fig:sae_structure}~下半部分所示，SAE 模块在坐标注意力之后引入了 SE 风格的通道注意力分支，采用多分支并行结构增强通道间的特征交互。具体而言，首先通过全局平均池化将特征图压缩为 $1 \times 1 \times C$ 的通道描述符；然后通过 4 个并行的全连接层（每个分支输出通道数为 $C/r$，$r$ 为压缩比）分别捕捉不同的通道依赖模式；接着将 4 个分支的输出拼接并通过另一个全连接层和 Sigmoid 激活生成最终的通道注意力权重；最后通过逐元素乘法（Scale）对特征图的各通道进行自适应重标定。
-
-坐标注意力通过坐标轴分解策略，将二维全局空间编码解耦为水平—垂直方向的一维位置感知，增强了模型对细长结构边界的定位能力；通道注意力则通过学习通道间的依赖关系，突出判别性通道的特征响应。二者的协同作用实现了空间与通道维度的双重特征增强，使模型能够更准确地定位目标边界，在处理细长形目标和边缘模糊区域时表现出显著优势。
+（5）通道注意力增强。通过全局平均池化压缩空间信息后，4 个并行全连接层分别捕捉不同的通道依赖模式，拼接后经全连接层和 Sigmoid 激活生成通道权重，对特征图各通道进行自适应重标定。
 
 \subsubsection{SAE模块的设计创新}
 
-SAE 模块并非简单组合坐标注意力（CA）\upcite{hou2021coordinateattentionefficientmobile}和 SE 注意力\upcite{hu2019squeezeandexcitationnetworks}，而是针对 OCT 图像边界模糊问题进行的系统性设计，主要体现在以下三个方面：
-
-（1）\textbf{坐标注意力的边界增强机制}。原始 CA 机制面向移动端轻量化设计，主要用于目标识别任务。本文将 CA 应用于分割任务的解码器端，利用其沿水平—垂直方向分别聚合特征的特性，增强对细长结构边界的方向性感知能力，使模型能够更精确地定位边界像素的空间位置。这种应用方式与 CA 的原始设计目标不同，体现了面向分割任务的针对性适配。
-
-（2）\textbf{双路径增强架构}。不同于 CA 或 SE 的单一注意力路径，本文设计"坐标注意力→特征精炼→通道注意力"的级联结构，先通过坐标注意力编码空间位置信息，再通过特征卷积层融合邻域上下文，最后通过通道注意力突出判别性特征，实现空间与通道维度的逐级增强。这种级联设计使后续模块能够在前一模块增强的特征基础上进一步优化，产生累积的增益效应。
-
-（3）\textbf{多分支通道注意力设计}。原始 SE 采用单一全连接层路径，本文在通道注意力分支中设计 4 个并行全连接层，分别捕捉不同的通道依赖模式后进行融合，增强了通道间特征交互的多样性。
-
-上述三点设计创新使 SAE 模块能够有效应对 OCT 图像的边界模糊问题，在保持轻量化的同时实现显著的边界精度提升。
+SAE 模块的创新体现在三个方面：（1）将坐标注意力从移动端识别任务适配到分割任务的解码器端，利用水平—垂直方向聚合增强细长结构边界的方向性感知；（2）设计"坐标注意力→特征精炼→通道注意力"的级联结构，实现空间与通道维度的逐级增强；（3）通道注意力分支采用 4 个并行全连接层替代单一路径，增强通道间特征交互的多样性。
 
 \subsubsection{SAE模块集成方式}
 
-SAE 模块被集成到 DeepLabV3+ 的解码器端，具体位置如图~\ref{fig:final_model}~所示。
+SAE 模块被集成于 DeepLabV3+ 解码器的低层特征降维之后、与高层特征拼接之前。低层特征包含丰富的空间细节但也夹杂噪声，在拼接前引入空间感知增强，可以突出边界相关特征、抑制噪声，提升后续特征融合的质量。
 
-在解码器的特征融合过程中，SAE 模块位于低层特征降维之后、与高层特征拼接之前。这一位置选择基于以下考虑：低层特征包含丰富的空间细节信息，但也包含较多噪声；在特征拼接前引入空间感知增强，可以突出边界相关的重要特征，抑制噪声干扰，从而提升后续特征融合的质量。
-
-SAE 模块采用轻量化设计，主要包含池化操作和少量卷积层，在引入较小计算开销的同时实现显著的性能提升。
-
-\subsection{改进模型的整体结构}
-
-经过第三章和本章的改进后，最终的模型结构如图~\ref{fig:final_model}~所示。本节详细介绍改进模型的完整架构和各模块的协同机制。
+\subsection{改进模型整体结构与协同机制}
 
 \subsubsection{完整模型架构}
 
@@ -122,43 +255,64 @@ SAE 模块采用轻量化设计，主要包含池化操作和少量卷积层，�
 \label{fig:final_model}
 \end{figure}
 
-改进后的模型在原始 DeepLabV3+ 模型的基础上，主要包含以下优化：
-
-（1）编码器端引入 TR 模块：在 ASPP 模块之后引入 TR 全局注意力模块，通过双层路由注意力机制建立长距离依赖关系，增强模型对全局上下文的建模能力。
-
-（2）解码器端集成 SAE 模块：在解码器的低层特征处理分支中集成 SAE 模块，通过坐标注意力机制增强空间位置感知能力，突出边界相关的重要特征。
-
-（3）混合损失函数：采用 BCE+Dice 混合损失函数进行训练，有效缓解类别不平衡问题，提升模型对目标类别的分割性能。
+改进后的模型在 DeepLabV3+ 基础上做了三项优化：编码器端在 ASPP 之后引入 TR 模块建立长距离依赖；解码器端在低层特征处理分支中集成 SAE 模块增强空间位置感知；训练时采用 BCE+Dice 混合损失函数缓解类别不平衡。
 
 \subsubsection{各模块协同机制}
 
-TR 模块和 SAE 模块在模型中分别承担不同的功能，形成"全局-局部"互补的协同机制：
+TR 模块位于编码器端，在 ASPP 输出的高层语义特征上建立全局依赖关系。SAE 模块位于解码器端，对低层细节特征进行空间位置感知增强。二者的分工可以概括为：TR 负责"看全局，防断裂"，SAE 负责"抓边界，提细节"。
 
-（1）TR 模块的全局建模作用
-
-TR 模块位于编码器端，在 ASPP 模块之后对高层语义特征进行全局上下文增强。通过双层路由注意力机制，TR 模块能够建立长距离依赖关系，理解图像的全局空间结构；捕捉细长结构目标的整体形态，避免断裂和误分割；在全局视角下抑制噪声区域的干扰。
-
-TR 模块通过 Top-K 区域选择策略，优先关注与查询区域语义相关的关键区域，在保持计算效率的同时实现有效的全局上下文建模。
-
-（2）SAE 模块的局部增强作用
-
-SAE 模块位于解码器端，对低层细节特征进行空间位置感知增强。通过坐标注意力机制，SAE 模块能够显式建模特征图的空间位置关系，增强位置敏感性；自适应调整不同空间位置的特征权重，突出边界区域；在水平和垂直两个方向上分别捕捉位置信息，适应细长结构的方向性特征。
-
-SAE 模块以较小的计算开销实现显著的边界分割精度提升。
-
-（3）协同效应
-
-TR 模块和 SAE 模块协同作用，在编码器端增强全局结构理解能力，在解码器端优化局部边界表示，实现了"编码重结构、解码重细节"的优化目标。这种设计使模型能够同时处理全局和局部信息，在保持整体分割准确性的同时，显著提升边界分割精度。
-
-消融实验结果表明，单独使用 TR 模块可提升 mIoU 3.9\%，单独使用 SAE 模块可提升 mIoU 5.9\%，而同时使用两个模块可提升 mIoU 7.1\%，体现了两个模块的互补性和协同效应。
+消融实验的数据直观地反映了这种互补性：单独使用 TR 可提升 mIoU 3.9\%，单独使用 SAE 可提升 5.9\%，同时使用可提升 7.1\%。
 
 \subsection{综合实验与分析}
 
-本节对所提出的 DeepLabV3+ + TR + SAE 改进模型进行全面的实验验证与分析。首先通过消融实验验证各模块的贡献，然后与主流方法进行对比实验，接着通过可视化分析定性评估分割效果，最后分析模型的计算效率。
+\subsubsection{实验环境与参数配置}
+
+实验环境配置如表~\ref{tab:env_config}~所示，训练参数配置如表~\ref{tab:train_config}~所示。
+
+\begin{table}[htbp]
+\centering
+\caption{实验环境配置}
+\label{tab:env_config}
+\begin{tabular}{cc}
+\toprule
+配置项 & 参数 \\
+\midrule
+GPU & NVIDIA GeForce RTX 4090D (24GB) × 1 \\
+CPU & AMD EPYC 9754 128-Core Processor（18 vCPU） \\
+内存 & 60 GB \\
+操作系统 & Ubuntu 20.04 LTS \\
+深度学习框架 & PyTorch 1.10.0 \\
+分割框架 & MMSegmentation \\
+GPU加速工具 & CUDA 11.3 \\
+编程语言 & Python 3.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{实验参数配置}
+\label{tab:train_config}
+\begin{tabular}{cc}
+\toprule
+参数 & 设置 \\
+\midrule
+训练迭代次数 & 20,000 次 \\
+批量大小 & 8 \\
+优化器 & Adam \\
+初始学习率 & $1 \times 10^{-6}$ \\
+学习率调度策略 & 多项式衰减（power=0.9） \\
+输入尺寸 & $512 \times 512$ \\
+评估间隔 & 每 500 次迭代 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+评价指标包括 mIoU（平均交并比）、mAcc（平均准确率）、mDice（平均 Dice 系数）和 HD95（Hausdorff 距离 95\% 分位数）。
 
 \subsubsection{消融实验}
 
-为验证各改进模块的有效性，本文设计了消融实验，通过逐项添加模块，分析各模块对模型性能的贡献。消融实验共设计 4 种配置，如表~\ref{tab:ablation}~所示。
+表~\ref{tab:ablation}~给出了 4 种配置的消融实验结果。
 
 \begin{table}[htbp]
 \centering
@@ -176,21 +330,31 @@ DeepLabV3+ (基线) & $\times$ & $\times$ & 0.851 & 0.923 & 0.913 & - \\
 \end{tabular}
 \end{table}
 
-由表~\ref{tab:ablation}~可知，各模块均能带来性能增益：
+TR 模块通过全局依赖建模使 mIoU 从 0.851 提升至 0.884（+3.9\%），SAE 模块仅增加 25M 参数量即实现 mIoU 5.9\% 的提升（参数效率 0.236），两模块同时使用达到 0.911（+7.1\%）。组合提升幅度（7.1\%）小于单模块之和（9.8\%），说明二者在提升路径上有一定重叠，但组合配置在所有指标上均为最优，体现了全局与局部增强的互补性。
 
-（1）TR 模块贡献：单独引入 TR 模块后，mIoU 从 0.851 提升至 0.884，提升幅度达 3.9\%。这表明全局上下文建模对分割性能有显著提升作用，TR 模块通过建立长距离依赖关系，增强了模型对细长结构目标的整体理解能力。
+表~\ref{tab:boundary}~给出了边界精度对比。
 
-（2）SAE 模块贡献：单独引入 SAE 模块后，mIoU 从 0.851 提升至 0.901，提升幅度达 5.9\%。这表明空间位置感知对边界分割具有重要意义，SAE 模块通过坐标注意力机制显著提升了边界分割精度。值得注意的是，SAE 模块仅增加 25M 参数量，参数效率（mIoU 提升/参数量增加）达到 0.236，远高于 TR 模块的 0.013。
+\begin{table}[htbp]
+\centering
+\caption{消融实验边界精度对比}
+\label{tab:boundary}
+\begin{tabular}{lcc}
+\toprule
+模型配置 & HD95 & 边界精度评价 \\
+\midrule
+DeepLabV3+ (基线) & 12.22 & 良好 \\
+DeepLabV3+ + TR & 11.89 & 良好 \\
+DeepLabV3+ + SAE & 11.45 & 优秀 \\
+本文方法 & 10.68 & 优秀 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-（3）双重注意力协同效应：同时引入 TR 模块和 SAE 模块后，mIoU 从 0.851 提升至 0.911，提升幅度达 7.1\%。组合提升幅度（7.1\%）小于单模块提升幅度之和（3.9\% + 5.9\% = 9.8\%），这表明两模块在提升路径上存在一定重叠。然而，组合配置在所有指标上均取得最优结果，体现了全局（TR）与局部（SAE）信息增强的互补性。
-
-综合以上分析，双重注意力机制产生协同效应，性能提升超过单独使用任一模块的效果，验证了本文方法设计的有效性。
+SAE 模块对边界精度的贡献更突出（HD95 从 12.22 降至 11.45），结合 TR 后进一步降至 10.68，相比基线降低 12.6\%。
 
 \subsubsection{与主流方法对比实验}
 
-为验证本文方法的有效性，在相同实验设置下与基线模型及多种主流语义分割方法进行对比。对比方法包括 UNet、UNet++、ResUNet、TransUNet 以及 DeepLabV3+ 等，涵盖了编码器-解码器架构和 Transformer 架构等不同类型的分割网络。
-
-表~\ref{tab:comparison}~给出了所有对比方法在测试集上的定量评估结果。
+表~\ref{tab:comparison}~给出了定量对比结果，表~\ref{tab:class_performance}~给出了类别级别的性能对比。
 
 \begin{table}[htbp]
 \centering
@@ -210,15 +374,7 @@ DeepLabV3+ (基线) & 0.851 & 0.923 & 0.913 & 0.904 & 0.923 \\
 \end{tabular}
 \end{table}
 
-由表~\ref{tab:comparison}~可知，本文方法（DeepLabV3+ + TR + SAE）在所有分割性能指标上均取得最优结果：
-
-（1）相比基线模型：本文方法在 mIoU 指标上达到 0.911，相比基线模型（DeepLabV3+）提升 7.1\%，在 mAcc 指标上提升 3.6\%，在 mDice 指标上提升 4.2\%。这一结果表明，TR 模块和 SAE 模块的引入有效提升了模型的分割性能。
-
-（2）相比 UNet 系列方法：本文方法相比 UNet 基础版本，mIoU 提升 13.2\%，mAcc 提升 8.9\%。相比 UNet++ 和 ResUNet，本文方法也均取得显著提升。这一结果表明，本文方法在编码器-解码器架构的基础上，通过引入双重注意力机制，有效提升了分割性能。
-
-（3）相比 TransUNet：虽然 TransUNet 在 mAcc 指标上略高于本文方法（0.963 vs 0.956），但本文方法在 mIoU 指标上显著优于 TransUNet（0.911 vs 0.810），提升幅度达 12.5\%。更重要的是，本文方法在计算效率方面具有明显优势（详见效率分析部分）。
-
-表~\ref{tab:class_performance}~给出了不同方法在背景类别和目标类别上的性能对比。
+本文方法 mIoU 达到 0.911，相比 UNet 提升 13.2\%，相比 TransUNet 提升 12.5\%，相比基线提升 7.1\%。TransUNet 在 mAcc 上略高（0.963 vs 0.956），但其 mIoU 仅 0.810，且内存占用远大于本文方法（详见效率分析）。
 
 \begin{table}[htbp]
 \centering
@@ -240,31 +396,9 @@ DeepLabV3+ (基线) & 0.992 & 0.996 & 0.710 & 0.850 & 0.830 \\
 \end{tabular}
 \end{table}
 
-由表~\ref{tab:class_performance}~可知，本文方法在目标类别上取得了显著提升。目标类别的 IoU 达到 0.826，相比基线模型（0.710）提升 16.3\%，相比 UNet（0.620）提升 33.2\%，相比 UNet++（0.518）提升 59.5\%，相比 ResUNet（0.457）提升 80.7\%，相比 TransUNet（0.632）提升 30.7\%。目标类别性能的大幅提升表明，本文方法通过 TR 模块增强全局上下文建模和 SAE 模块增强局部细节表达，有效提升了对熔深目标的分割精度。
-
-表~\ref{tab:boundary}~给出了不同方法的边界精度对比，采用 HD95 指标进行评估。
-
-\begin{table}[htbp]
-\centering
-\caption{消融实验边界精度对比}
-\label{tab:boundary}
-\begin{tabular}{lcc}
-\toprule
-模型配置 & HD95 & 边界精度评价 \\
-\midrule
-DeepLabV3+ (基线) & 12.22 & 良好 \\
-DeepLabV3+ + TR & 11.89 & 良好 \\
-DeepLabV3+ + SAE & 11.45 & 优秀 \\
-本文方法 & 10.68 & 优秀 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-由表~\ref{tab:boundary}~可知，本文方法的 HD95 指标达到 10.68，相比基线模型（12.22）降低 12.6\%。HD95 值越小，表示边界分割越精确。值得注意的是，单独使用 SAE 模块时，HD95 为 11.45，已经取得了较好的边界精度；结合 TR 模块后，HD95 进一步降低至 10.68，说明双重注意力机制在边界精度提升方面具有协同效应。
+目标类别 IoU 达到 0.826，相比基线（0.710）提升 16.3\%，相比 UNet（0.620）提升 33.2\%。这一差距主要来自于 TR 模块避免了细长结构断裂、SAE 模块提高了边界定位精度。
 
 \subsubsection{可视化分析}
-
-本节通过可视化对比分析，从定性角度评估全部8个模型配置的分割效果，包括4种主流方法（UNet、UNet++、ResUNet、TransUNet）和4种消融配置（DeepLabV3+基线、+TR、+SAE、+TR+SAE）。
 
 \begin{figure}[htbp]
 \centering
@@ -303,17 +437,9 @@ DeepLabV3+ + SAE & 11.45 & 优秀 \\
 \label{fig:comparison_all}
 \end{figure}
 
-图~\ref{fig:comparison_all}~展示了全部8个模型的分割结果可视化对比。从消融实验角度分析：单独引入 TR 模块后，细长结构的分割连续性得到明显改善；单独引入 SAE 模块后，边界轮廓更加清晰锐利；同时引入两个模块后，分割结果兼具全局结构的完整性和边界的精确性。从主流方法对比角度分析，本文方法在以下方面表现出明显优势：
-
-（1）边界清晰度：本文方法在边界分割方面表现出色，边界更加清晰和连续。SAE 模块通过坐标注意力增强空间位置信息，使得边界特征更加突出。相比之下，UNet 系列方法在边界模糊区域存在边界断裂或粘连问题。
-
-（2）细长结构处理：本文方法能够准确分割细长的熔深区域。TR 模块通过双层路由注意力机制建立长距离依赖关系，使得网络能够理解整个图像的空间关系。相比之下，UNet、UNet++ 和 ResUNet 在细长结构上存在断裂现象，TransUNet 虽有改善但精度仍不及本文方法。
-
-（3）噪声干扰下的鲁棒性：本文方法在噪声干扰下表现出较强的鲁棒性。TR 模块通过全局上下文建模抑制局部噪声的影响，SAE 模块通过局部细节增强保留重要的边界信息，两者结合使得网络在噪声干扰下仍能稳定学习目标的语义结构。
+图~\ref{fig:comparison_all}~的可视化结果表明：UNet 系列在细长结构上出现断裂，TransUNet 有所改善但精度不足；单独加 TR 后连续性改善，单独加 SAE 后边界更锐利，两者同时使用时分割结果兼具全局完整性和边界精确性。
 
 \subsubsection{效率分析}
-
-在实际应用中，除了分割性能外，模型的计算资源需求也是重要的考量因素。表~\ref{tab:efficiency}~从参数量和内存占用两个方面对不同方法进行对比分析。
 
 \begin{table}[htbp]
 \centering
@@ -333,28 +459,8 @@ DeepLabV3+ (基线) & 95 & 2705 \\
 \end{tabular}
 \end{table}
 
-由表~\ref{tab:efficiency}~可知：
-
-（1）参数量分析：本文方法的参数量为 420M，相比基线模型（95M）增加 342.1\%。参数量增加主要来源于 TR 模块（+301M）和 SAE 模块（+25M）。虽然参数量增加较大，但性能提升显著（mIoU 提升 7.1\%），参数效率合理。值得注意的是，UNet++ 和 ResUNet 的参数量较小（分别为 8.8M 和 13M），但其分割性能明显不及本文方法。
-
-（2）内存占用分析：本文方法的内存占用为 9107MB，相比基线模型（2705MB）增加 236.7\%。但相比 TransUNet（19530MB），本文方法的内存占用减少 53.3\%，在性能更优的同时具有更低的内存需求。这主要得益于 TR 模块采用的双层路由稀疏注意力机制，相比 TransUNet 的标准自注意力机制，显著减少了中间激活值的存储需求。
-
-（3）效率权衡：综合考虑性能和计算资源需求，本文方法在 mIoU 提升 12.5\% 的同时（相比 TransUNet），内存占用减少 53.3\%，取得了性能与效率的良好平衡。
+本文方法参数量 420M，相比基线增加 342.1\%，但 mIoU 提升 7.1\%。与 TransUNet 相比，mIoU 高 12.5\% 而内存占用低 53.3\%（9107MB vs 19530MB），这得益于 TR 模块的双层路由稀疏注意力机制减少了中间激活值的存储需求。
 
 \subsection{本章小结}
 
-本章在第三章的基础上，围绕空间位置信息感知不足的问题进行了深入探讨，提出了空间感知增强（SAE）模块，并构建了完整的 DeepLabV3+ + TR + SAE 改进模型。
-
-在模块设计方面，SAE 模块的设计灵感来源于坐标注意力机制，通过沿水平和垂直两个方向进行特征聚合，显式建模特征图的空间位置关系。该模块能够自适应调整不同空间位置的特征权重，突出边界区域的特征表示，从而提升边界分割精度。SAE 模块以较小的参数量（+25M）实现了显著的性能提升（mIoU +5.9\%），参数效率较高。
-
-在模型架构方面，本章将 SAE 模块集成到解码器端，与第三章提出的 TR 模块形成"全局-局部"互补的协同机制。TR 模块在编码器端负责全局上下文建模，SAE 模块在解码器端负责局部细节增强，两者协同作用实现了分割性能的综合提升。
-
-在实验验证方面，本章设计了消融实验、对比实验、可视化分析和效率分析，全面验证了所提方法的有效性：
-
-（1）性能优势：本文方法在 mIoU 指标上达到 0.911，相比基线模型提升 7.1\%，相比 UNet 提升 13.2\%，相比 TransUNet 提升 12.5\%。目标类别 IoU 提升 16.3\%，边界精度 HD95 降低 12.6\%。
-
-（2）效率优势：相比 TransUNet，本文方法在性能更优的同时，内存占用减少 53.3\%。
-
-（3）协同效应：消融实验验证了 TR 模块和 SAE 模块的互补性和协同效应，双重注意力机制的组合使用取得了最优性能。
-
-综合以上实验结果和分析，本章提出的改进方案使得最终模型在分割精度和效率之间达到了较好的平衡，验证了所提方法在焊接 OCT 图像语义分割任务中的有效性和实用性。
+本章针对焊接 OCT 图像语义分割任务，在 DeepLabV3+ 基线模型上提出了两个互补的注意力模块。TR 模块在编码器端通过双层路由注意力建立长距离依赖，解决细长结构断裂问题，使 mIoU 提升 3.9\%。SAE 模块在解码器端通过坐标注意力编码空间位置信息，提升边界分割精度，以 25M 参数量换取 5.9\% 的 mIoU 提升。两模块同时使用使 mIoU 达到 0.911（+7.1\%），目标类别 IoU 达 0.826（+16.3\%），HD95 降至 10.68（-12.6\%）。相比 TransUNet，本文方法在 mIoU 高 12.5\% 的同时内存占用低 53.3\%。

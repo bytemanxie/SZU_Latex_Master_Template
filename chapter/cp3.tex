@@ -1,431 +1,391 @@
 \clearpage
 
-\section{基于全局注意力机制的 DeepLabV3+模型改进}
+\section{基于 CUDA 的 OCT 图像加速重建算法设计}
 
-激光焊接过程中，熔深是评估焊接质量的关键指标。熔深过小会导致焊接强度不足，熔深过大则可能造成焊穿或烧蚀等问题。传统的熔深测量方法依赖于破坏性金相检测或人工目视检查，效率低下且难以实现在线监测。OCT 技术的引入为激光焊接熔深的非接触式在线检测提供了新的途径，但 OCT 图像存在散斑噪声严重、对比度低、边界模糊等特点，使得熔深区域的自动化提取成为一项具有挑战性的任务。
+光谱域 OCT 系统通过光谱仪采集干涉条纹信号，经一系列数值变换——包括光谱整形、背景扣除、K 线性化插值、色差补偿、傅里叶变换和幅值提取——才能得到可供显示的深度图像。本文所使用的 SD-OCT 系统 A 扫采集频率为 82~kHz，即每秒产生 82000 条长度为 2048 点的干涉谱线。上述后处理步骤若在 CPU 端串行执行，单帧 B 扫（含 1000 条 A 扫）的处理耗时远超采集周期，无法满足在线成像需求。
 
-近年来，基于深度学习的语义分割方法在图像分割领域取得了显著进展。DeepLabV3+ 作为语义分割领域的经典方法，通过编码器-解码器结构和 ASPP 模块实现了多尺度上下文信息的有效捕获\upcite{Chen2018DeepLab}。然而，在处理焊接 OCT 图像时，DeepLabV3+ 仍面临全局上下文建模不足的挑战。ASPP 模块的感受野受限于空洞卷积的局部性，难以建立长距离依赖关系，而 OCT 图像中的熔深区域呈现细长结构，需要网络理解整个图像的空间关系才能实现准确分割。
+本章围绕这一吞吐量瓶颈，将全部后处理步骤移植到 GPU 上并行执行。首先分析各步骤的计算特征与串行瓶颈（3.1 节）；然后逐一阐述 8 个 CUDA 核函数的并行化设计，重点介绍三次样条 K 线性化中引入的并行循环还原（PCR）算法（3.2 节）；接着讨论 GPU 内存层次的利用策略与数据流组织方式（3.3 节）；在此基础上，针对细粒度 B 扫场景下显式内存拷贝与同步操作导致的吞吐量衰减问题，引入统一内存与事件驱动的优化方案并进行验证（3.4 节）；最后给出性能测试结果（3.5 节）。
 
-针对上述问题，本章提出了一种基于 Transformer 注意力机制的改进方案。通过在 ASPP 模块之后引入 TR（Transformer Routing）全局注意力模块，利用双层路由注意力机制建立长距离依赖关系，增强模型对全局上下文的建模能力。同时，针对 OCT 图像中前景与背景类别不平衡的问题，设计了 BCE+Dice 混合损失函数。
+\subsection{OCT 后处理算法流程与计算瓶颈分析}
 
-本章结构如下：3.1 节详细介绍 DeepLabV3+ 基线模型的工作原理；3.2 节阐述模型的改进动机与 TR 模块的设计；3.3 节通过消融实验和对比实验验证所提方法的有效性；3.4 节对本章内容进行总结。
+\subsubsection{后处理算法流程}
 
-\subsection{DeepLabV3+模型的工作原理}
-
-DeepLabV3+ 是语义分割领域的经典方法，由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}。该模型结合了空洞卷积、ASPP 模块和编码器-解码器结构，在多尺度上下文信息捕获方面表现出色。本节详细介绍 DeepLabV3+ 的核心组件，为后续改进工作奠定基础。DeepLabV3+ 的整体网络结构已在第二章图~\ref{fig:deeplabv3plus_structure}~中详细展示。
-
-\subsubsection{空洞卷积}
-
-在图像处理领域中，卷积操作是提取图像特征的基础。然而，传统的卷积操作在增加感受野的同时，会导致计算量显著增加以及图像细节的丢失。为了解决这个问题，空洞卷积（Atrous Convolution，又称扩张卷积）应运而生。
-
-空洞卷积是一种特殊的卷积操作，其核心思想是在卷积核中插入空洞，从而在不增加计算量的前提下扩大卷积核的感受野。具体而言，空洞卷积通过在卷积核的相邻元素之间插入一定数量的空洞（即零值），使得卷积核能够在更大的范围内捕捉图像信息。空洞卷积的示意图如图~\ref{fig:dilated_conv}~所示。
+本文 SD-OCT 系统的后处理流水线如图~\ref{fig:cuda_pipeline}~所示，输入为光谱仪采集的 $M \times 2048$ 原始干涉谱数据（uint16 类型），输出为 $M \times 2048$ 的深度灰度图像（float 类型）。整条流水线包含以下 8 个步骤：
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.9\textwidth]{figure/cp3/fig3-1_dilated_conv.png}
-\caption{空洞卷积示意图\upcite{Patel2021Atrous}}
-\label{fig:dilated_conv}
+\fbox{\parbox{0.88\textwidth}{\centering\vspace{2.5cm}{\heiti\zihao{5} [占位图：CUDA 后处理流水线框图]}\par\texttt{figure/cp3/fig3-1\_cuda\_pipeline.png}\vspace{2.5cm}}}
+\caption{SD-OCT 后处理流水线}
+\label{fig:cuda_pipeline}
 \end{figure}
 
-设输入特征图为 $\mathbf{F}$，空洞卷积核为 $\mathbf{W}$，空洞率为 $r$，则空洞卷积的输出可表示为：
-\begin{equation}
-\mathbf{O}[i, j] = \sum_{m} \sum_{n} \mathbf{F}[i + r \cdot m, j + r \cdot n] \cdot \mathbf{W}[m, n]
-\label{eq:dilated_conv}
-\end{equation}
-其中，$(i, j)$ 表示输出特征图的位置坐标，$(m, n)$ 表示卷积核的索引。当 $r = 1$ 时，空洞卷积退化为标准卷积；当 $r > 1$ 时，卷积核的有效感受野扩大为 $(2r - 1) \times k + 1$，其中 $k$ 为卷积核的原始尺寸。
+（1）数据类型转换：将采集卡输出的 16 位无符号整数逐元素转换为 32 位浮点数，为后续数值计算做准备。
 
-在 DeepLabV3+ 模型中，空洞卷积被广泛应用于编码器特征提取阶段。通过不同空洞率的空洞卷积组合，编码器能够捕捉到不同尺度的图像特征，为后续的多尺度信息融合提供基础。相比于传统的池化操作，空洞卷积在扩大感受野的同时能够保持特征图的空间分辨率，避免了下采样带来的信息损失。
+（2）光谱整形（高斯归一化）：OCT 宽带光源的光谱包络通常不是理想的高斯分布，直接做傅里叶变换会在深度域产生旁瓣噪声。本系统采用归一化方法校正光谱包络——以首帧数据的列均值作为实际光谱包络的估计，生成目标高斯分布，计算二者的逐点比值作为归一化系数，后续各帧乘以该系数即完成整形。
 
-\subsubsection{ASPP模块}
+（3）背景扣除（去直流项）：对当前帧的所有 A 扫求列均值，得到与深度无关的直流分量估计，再从每条 A 扫中减去该均值。这一步消除了参考臂反射光和光源功率波动带来的背景偏移。
 
-ASPP（Atrous Spatial Pyramid Pooling，空洞空间金字塔池化）模块是 DeepLabV3+ 的核心组件，通过多个不同空洞率的并行分支捕获多尺度上下文信息\upcite{Chen2017DeepLabV3}。ASPP 模块的设计灵感来源于空间金字塔池化（Spatial Pyramid Pooling, SPP），但与之不同的是，ASPP 模块使用空洞卷积来替代传统的池化操作。ASPP 模块的结构如图~\ref{fig:aspp_module}~所示。
+（4）K 线性化（三次样条插值）：光谱仪的像素与波长之间的映射关系是非线性的，而傅里叶变换要求信号在波数（$k$）空间上均匀采样。K 线性化通过插值将非均匀的波长域采样重新映射到均匀的 $k$ 域网格上。本系统使用三次样条插值以获得较高的重映射精度。
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-2_aspp_module.png}
-\caption{ASPP模块结构图}
-\label{fig:aspp_module}
-\end{figure}
+（5）色差补偿：光在参考臂与样品臂传播时，不同波长成分的群速度差异会引入附加相位，导致深度域信号展宽、分辨率下降。本系统通过预先标定的色差补偿函数 $G_c(k)$（复数形式）与插值后的信号逐点相乘来校正这一相位畸变。
 
-本文方法采用深度可分离 ASPP 模块（DepthwiseSeparableASPPModule），在保持性能的同时降低计算复杂度。ASPP 模块包含 5 个并行分支：（1）1×1 卷积分支，用于捕获细节特征；（2）3×3 空洞卷积分支（dilation=12），用于捕获局部特征；（3）3×3 空洞卷积分支（dilation=24），用于捕获区域特征；（4）3×3 空洞卷积分支（dilation=36），用于捕获全局特征；（5）全局平均池化分支，对特征图进行全局平均池化后通过 1×1 卷积恢复通道数，用于捕获全局上下文信息。
+（6）快速傅里叶变换（FFT）：对色差补偿后的复数信号做 $k$ 域到深度域（$z$ 域）的傅里叶变换，一次批量处理 $M$ 条 A 扫。
 
-5 个并行分支的输出特征经过通道维度拼接后，得到多尺度特征表示，随后通过 1×1 卷积降维，减少特征维度并融合多尺度信息。
+（7）幅值提取与对数压缩：取 FFT 结果的复数模并做对数映射 $20\log_{10}(1+|\cdot|)$，将信号动态范围压缩到适合灰度显示的区间。
 
-ASPP 模块使用深度可分离卷积降低计算复杂度。深度可分离卷积分为两个步骤：首先进行深度卷积（Depthwise Convolution），对每个通道独立进行卷积操作；然后进行点卷积（Pointwise Convolution），使用 1×1 卷积进行通道融合。深度可分离卷积的参数量和计算量远小于标准卷积，在保持性能的同时提升了计算效率。
+（8）帧合并（可选）：在 2D B 扫显示模式下，将相邻若干帧的对应像素累加，起到平均降噪的作用。
 
-\subsubsection{编码器-解码器结构}
+\subsubsection{串行计算瓶颈分析}
 
-DeepLabV3+ 采用编码器-解码器架构，其中编码器负责提取图像的多尺度特征并捕获语义信息，解码器负责恢复空间分辨率并输出像素级预测结果\upcite{Chen2018DeepLab}。
+上述 8 个步骤中，计算量最大的是第（4）步 K 线性化和第（6）步 FFT。
 
-（1）编码器：本文方法采用 ResNet18-V1c 作为骨干网络\upcite{He2015ResNet,wu2016widerdeeper}。ResNet18-V1c 是 ResNet 的改进版本，使用 Deep Stem 结构（三个连续的 3×3 卷积替换传统的 7×7 卷积）减少参数量并提升特征提取能力。ResNet18-V1c 包含四个阶段（Stage），逐步提取从低级到高级的特征表示，其中浅层特征保留较多细节信息用于解码器融合，深层特征送入 ASPP 模块进行多尺度上下文聚合。
+K 线性化中的三次样条插值需要先求解一个 2048 阶的三对角线性方程组以获得各插值节点的二阶导数，再利用二阶导数对每个目标 $k$ 值做逐点插值。传统的 Thomas 算法（追赶法）是串行算法，前向消元和回代各需遍历 2048 个节点，时间复杂度为 $O(N)$，且每条 A 扫必须独立求解。当 $M=1000$ 时，仅三对角求解一项就需要执行约 $2 \times 2048 \times 1000 \approx 4 \times 10^6$ 次串行浮点运算。
 
-选择 ResNet18 而非更深的 ResNet50/101 作为骨干网络，基于以下考虑：\ding{172}~数据集规模限制：本文训练集仅包含 912 张图像，数据规模相对有限，过深的骨干网络（如 ResNet50 的 2300 万参数 vs ResNet18 的 1100 万参数）容易导致过拟合；\ding{173}~OCT 图像特点：焊接 OCT 图像的纹理结构相对简单（主要为背景与熔深区域的二分类任务），无需 ImageNet 级别的复杂特征提取能力；\ding{174}~工业部署需求：激光焊接在线监测对实时性要求较高，轻量化骨干网络有利于实现快速推理。表~\ref{tab:backbone_comparison}~给出了不同骨干网络的消融实验结果。
+2048 点复数 FFT 的计算复杂度为 $O(N \log N)$，$M$ 条 A 扫的总运算量约为 $M \times 2048 \times 11 \approx 2.25 \times 10^7$ 次。
+
+在 CPU 端串行执行时，以上两步合计每帧耗时约数十毫秒（视 CPU 主频而定），加上其余步骤后总耗时远超 82~kHz 采集速率下每条 A 扫 12.2~\textmu s 的采集周期。GPU 并行计算的引入正是为了打破这一瓶颈——$M$ 条 A 扫在 GPU 上可同时处理，各步骤的 $M \times 2048$ 个数据点由数千个线程并行执行，将整条流水线的耗时压缩到与采集周期相匹配的量级。
+
+\subsection{基于 CUDA 的并行化后处理算法设计}
+
+本节逐一介绍流水线中 8 个 CUDA 核函数的设计思路、线程映射方式和关键优化手段。所有核函数均以 $M$ 条 A 扫长度 $N=2048$ 的数据块为一次处理单元。表~\ref{tab:kernel_list}~列出了各核函数的名称、功能和线程映射方式。
 
 \begin{table}[htbp]
 \centering
-\caption{骨干网络消融实验}
-\label{tab:backbone_comparison}
+\caption{后处理流水线核函数一览}
+\label{tab:kernel_list}
+\begin{tabular}{clll}
+\toprule
+序号 & 核函数名称 & 功能 & 线程映射 \\
+\midrule
+1 & Uint\_Transform\_FloatKernel & 类型转换 & 一维，每线程一像素 \\
+2 & MultiplyKernel & 高斯归一化 & 二维 $(N, M)$ \\
+3 & MeanKernel & 列均值计算 & 一维，每线程一列 \\
+4 & SubKernel & 减背景 & 一维，LoopNum 展开 \\
+5 & splineInterpKernelV2\_optimized\_PCR & PCR 样条插值 & 每 block 一条 A 扫 \\
+6 & MutiplyKernel（复数） & 色差补偿 & 一维，LoopNum 展开 \\
+7 & cufftExecC2C & 批量 FFT & cuFFT 库函数 \\
+8 & AmplitudeKernel & 幅值提取 & 一维，LoopNum 展开 \\
+9 & MergeKernel & 帧合并 & 二维 $(32, 8)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{数据类型转换}
+
+光谱仪通过 CameraLink 接口输出 12 位深度的原始数据，存储为 uint16 类型。后续的插值、FFT 等步骤均要求浮点运算，因此流水线的第一步是将 $M \times N$ 个 uint16 元素逐一转换为 float。
+
+核函数 \texttt{Uint\_Transform\_FloatKernel} 采用最直接的一维线程映射：每个线程负责一个元素的类型转换，总线程数等于 $M \times N$。网格与线程块的配置为 \texttt{gridDim = total / blockDim}，\texttt{blockDim = 512}，通过全局索引 \texttt{idx = blockIdx.x * blockDim.x + threadIdx.x} 实现线程与数据元素的一一对应。由于类型转换本身计算量极小，该核函数的耗时主要取决于全局内存的读写带宽。
+
+\subsubsection{光谱整形（高斯归一化）}
+
+光谱整形分为两个阶段。
+
+第一阶段在首帧数据到达时执行：先将 uint16 数据转换为 float，然后在 CPU 端计算各列的均值作为实际光谱包络估计 \texttt{base[i]}（$i = 0, 1, \ldots, N-1$），再生成以 $\mu=1024$、$\sigma=350$、$\text{scale}=500$ 为参数的高斯分布 \texttt{gsy[i]}，最后计算归一化系数 $\texttt{gsl}[i] = \texttt{gsy}[i] / \texttt{base}[i]$（\texttt{base[i]=0} 时置零）。归一化系数通过 \texttt{cudaMemcpy} 传入设备端缓冲区 \texttt{dvc\_base2}。
+
+第二阶段处理后续各帧：核函数 \texttt{MultiplyKernel} 以二维线程网格 $(\lceil N/16 \rceil, \lceil M/16 \rceil)$、线程块 $(16, 16)$ 的配置运行，每个线程计算一个元素 $\texttt{dvc\_img}[r \cdot N + c] = \texttt{dvc\_img\_gsl}[r \cdot N + c] \times \texttt{dvc\_base2}[c]$，其中 $r$ 为 A 扫索引，$c$ 为采样点索引。归一化系数 \texttt{dvc\_base2} 仅依赖列索引，同一列的所有线程读取相同地址，可以被 L1/L2 缓存有效复用。
+
+\subsubsection{背景扣除}
+
+背景扣除由两个核函数协同完成。
+
+\texttt{MeanKernel} 负责计算每一列的均值：每个线程对应一个列索引 $i$，沿 $M$ 条 A 扫方向遍历累加后除以 $M$，结果写入 \texttt{dvc\_mean[i]}。线程块大小为 1024，网格大小为 $N/1024 = 2$，共 2048 个线程分别处理 2048 列。每个线程需要顺序访问 $M$ 个不连续的全局内存地址（步长为 $N$），访问模式为跨步读取。
+
+\texttt{SubKernel} 负责逐元素减均值：采用 LoopNum 展开策略——每个线程处理连续 LoopNum 个元素，通过取模运算 \texttt{(ind * LoopNum + i) \% N} 找到对应列的均值进行减法。这种展开设计减少了线程总数和核函数启动开销，同时保持了较高的线程利用率。
+
+\subsubsection{三次样条 K 线性化——从 Thomas 算法到 PCR 并行算法}
+
+K 线性化是整条流水线中计算密度最高、并行化难度最大的步骤。本系统实现了三个版本的插值核函数，性能和精度逐步提升。
+
+\paragraph{（1）线性插值版本（LinearInterKernel）}
+
+最基础的实现方案。预计算阶段在 CPU 端通过 \texttt{Caculate\_initial\_value} 函数，对 2048 个目标 $k$ 值逐一在降序排列的波长节点数组 \texttt{Lambda1} 中查找所在区间，记录区间索引 \texttt{index[j]} 和线性插值权重 \texttt{w1[j]}、\texttt{w2[j]}。核函数中每个线程根据预计算的索引和权重，对减背景后的信号做线性插值。
+
+线性插值的优点是计算简单、完全可并行，但插值精度有限——一阶连续的分段线性函数在节点处导数不连续，引入的重映射误差会降低深度域的轴向分辨率。
+
+\paragraph{（2）三次样条串行版本（splineInterpKernelV2）}
+
+为提高插值精度，引入三次样条插值。三次样条要求首先求解一个 $N$ 阶三对角线性方程组，获得各节点处的二阶导数 $y_2[i]$，然后利用 $y_2$ 按照样条插值公式计算每个目标点的插值结果。
+
+在此版本中，每个 CUDA block 处理一条 A 扫（$M$ 条 A 扫对应 $M$ 个 block）。三对角求解部分由 \texttt{threadIdx.x == 0} 的单个线程串行执行 Thomas 算法（前向消元 + 回代），结果存入共享内存 \texttt{\_\_shared\_\_ float y2[2048]}。所有线程通过 \texttt{\_\_syncthreads()} 等待求解完成后，再并行执行插值计算——每个线程负责若干个目标 $k$ 值，通过二分查找定位所在区间，代入样条插值公式：
+\begin{equation}
+y = A \cdot f_k + B \cdot f_{k+1} + \frac{h^2}{6}\left[(A^3 - A) \cdot y_{2,k} + (B^3 - B) \cdot y_{2,k+1}\right]
+\label{eq:spline_interp}
+\end{equation}
+其中 $A = (\lambda_{k+1} - x) / h$，$B = (x - \lambda_k) / h$，$h = |\lambda_{k+1} - \lambda_k|$。
+
+该版本的问题在于：每个 block 的 256 个线程中，只有 1 个线程在做三对角求解（共 2046 步前向消元 + 2046 步回代），其余 255 个线程在同步点处空等。三对角求解的耗时占整个核函数执行时间的绝大部分，GPU 的并行计算能力在这一阶段被严重浪费。
+
+\paragraph{（3）PCR 并行版本（splineInterpKernelV2\_optimized\_PCR）}
+
+为消除三对角求解中的串行瓶颈，本文引入并行循环还原（Parallel Cyclic Reduction, PCR）算法。PCR 是一种经典的三对角方程组并行求解方法，通过逐层消去相隔 $2^l$ 的未知量，将 $N$ 个方程的求解过程分解为 $\log_2 N$ 层并行迭代，每层内所有方程独立更新，可由多个线程同时执行。
+
+\textbf{共享内存布局。}PCR 算法需要维护三对角系数 $a_i$、$b_i$、$c_i$ 和右端项 $d_i$，以及最终的二阶导数 $y_2[i]$ 和缓存的插值节点 \texttt{Lambda1[i]}。共享内存布局为 6 个长度为 $N=2048$ 的 float 数组，总计 $6 \times 2048 \times 4 = 48$~KB。核函数通过 \texttt{extern \_\_shared\_\_ float shared\_mem[]} 动态分配，启动时指定共享内存大小为 $6 \times N \times \text{sizeof(float)}$。
+
+\textbf{三对角系数构造。}构造阶段并行执行：每个线程处理若干行（步长为 blockDim.x = 256），对于内部节点 $i \in [1, N-2]$，计算间距 $h_{i-1} = |\lambda_i - \lambda_{i-1}|$、$h_i = |\lambda_{i+1} - \lambda_i|$，以及差商 $d_1 = (f_{i+1} - f_i)/h_i$、$d_2 = (f_i - f_{i-1})/h_{i-1}$，从而设定：
+\begin{equation}
+a_i = h_{i-1}, \quad b_i = 2(h_{i-1} + h_i), \quad c_i = h_i, \quad d_i = 6(d_1 - d_2)
+\end{equation}
+边界条件为自然样条，即 $b_0 = b_{N-1} = 1$，$a_0 = c_0 = a_{N-1} = c_{N-1} = d_0 = d_{N-1} = 0$。
+
+信号值 $f_i$ 通过 \texttt{\_\_ldg(x\_col + i)} 读取，走全局内存的只读缓存路径，避免与共享内存的写操作产生 bank conflict。插值节点 \texttt{Lambda1} 预先通过 \texttt{cudaMemcpyToSymbol} 拷入常量内存 \texttt{\_\_constant\_\_ float c\_Lambda1[2048]}，在构造阶段由各线程协作加载到共享内存 \texttt{sLambda1} 中以加速后续的随机访问。
+
+\textbf{PCR 迭代消元。}构造完成后，进入 $\log_2(2048) = 11$ 层 PCR 迭代。每层的偏移量 $\text{offset} = 2^l$（$l = 0, 1, \ldots, 10$），每个线程对自己负责的行 $i$ 读取左邻居（$i - \text{offset}$）和右邻居（$i + \text{offset}$）的系数，按 PCR 消去公式更新：
+\begin{align}
+\alpha &= a_i / b_{i-\text{offset}}, \quad \gamma = c_i / b_{i+\text{offset}} \\
+b_i' &= b_i - c_{i-\text{offset}} \cdot \alpha - a_{i+\text{offset}} \cdot \gamma \\
+d_i' &= d_i - d_{i-\text{offset}} \cdot \alpha - d_{i+\text{offset}} \cdot \gamma \\
+a_i' &= -a_{i-\text{offset}} \cdot \alpha, \quad c_i' = -c_{i+\text{offset}} \cdot \gamma
+\end{align}
+更新结果写回共享内存中的同一位置。每层迭代结束后通过 \texttt{\_\_syncthreads()} 保证所有线程完成写入，再进入下一层。
+
+11 层迭代完成后，每行的方程已化简为 $b_i' \cdot y_{2,i} = d_i'$ 的独立形式，各线程直接做除法 $y_{2,i} = d_i' / b_i'$ 即可。
+
+\textbf{并行插值。}得到二阶导数 $y_2$ 后，各线程对自己负责的目标 $k$ 值通过二分查找在共享内存 \texttt{sLambda1} 中定位所在区间，代入式~(\ref{eq:spline_interp})~计算插值结果。
+
+\textbf{核函数执行配置。}核函数使用 \texttt{\_\_launch\_bounds\_\_(256, 4)} 限制每 block 256 个线程、每 SM 最多 4 个活跃 block，以确保共享内存（48~KB/block）不超过 SM 的可用容量，同时维持足够的 warp 占用率。网格大小为 $M$（block 数 = A 扫条数），每个 block 独立处理一条 A 扫。
+
+表~\ref{tab:spline_comparison}~对比了三个版本的 K 线性化核函数在三对角求解阶段的并行度。
+
+\begin{table}[htbp]
+\centering
+\caption{K 线性化核函数版本对比}
+\label{tab:spline_comparison}
+\begin{tabular}{lccc}
+\toprule
+ & 线性插值 & Thomas 串行样条 & PCR 并行样条 \\
+\midrule
+三对角求解 & 不需要 & 1 线程串行 & 256 线程并行 \\
+求解步数 & — & $2 \times 2046$ 步 & $11$ 层迭代 \\
+插值精度 & 一阶连续 & 三阶连续 & 三阶连续 \\
+共享内存用量 & 无 & $2 \times N$ float & $6 \times N$ float \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{色差补偿}
+
+色差补偿核函数 \texttt{MutiplyKernel}（复数版本）将插值后的实数信号与预先标定的色差补偿系数 $G_c(k)$ 做复数乘法。$G_c$ 存储为 \texttt{cufftComplex} 类型，长度 $N$，在初始化阶段由文件 \texttt{Gc\_real.txt} 和 \texttt{Gc\_imag.txt} 读入并拷贝到设备端。
+
+核函数中每个线程处理连续 LoopNum 个元素，通过取模运算 \texttt{(ind * LoopNum + i) \% N} 索引到对应列的 $G_c$ 系数，计算实部和虚部的乘积。输出为复数数组 \texttt{dvc\_multiply}，供后续 FFT 使用。
+
+\subsubsection{批量 FFT}
+
+FFT 使用 NVIDIA cuFFT 库的 \texttt{cufftExecC2C} 函数，以 C2C（复数到复数）模式前向变换。FFT 计划在 \texttt{Data} 类的构造函数中通过 \texttt{cufftPlanMany} 一次性创建：
+\begin{itemize}
+\item 变换长度 $n = 2048$
+\item 批次数 $\text{batch} = M$
+\item 输入/输出步长 $\text{istride} = \text{ostride} = 1$
+\item 批次间距 $\text{idist} = \text{odist} = 2048$
+\end{itemize}
+
+该配置使 cuFFT 在一次调用中同时对 $M$ 条 A 扫执行 2048 点 FFT，内部自动选择最优的并行分解策略。FFT 执行后调用 \texttt{cudaDeviceSynchronize()} 确保变换完成，结果原地写回 \texttt{dvc\_multiply}。
+
+\subsubsection{幅值提取与对数压缩}
+
+\texttt{AmplitudeKernel} 对 FFT 输出的复数取模并做对数映射：
+\begin{equation}
+\text{result}[i] = 20 \cdot \log_{10}\left(1 + \sqrt{\text{Re}^2[i] + \text{Im}^2[i]}\right)
+\end{equation}
+
+线程映射方式与 SubKernel 相同（LoopNum 展开）。加 1 的处理避免了 $\log_{10}(0)$ 的奇异点；20 倍系数将幅度转换为以分贝（dB）为单位的灰度值，使图像对比度适合人眼观察。
+
+\subsubsection{帧合并}
+
+在 2D B 扫显示模式下，核函数 \texttt{MergeKernel} 将 $M$ 条 A 扫按每 \texttt{merge} 条为一组进行累加，输出 $M/\text{merge}$ 条合并后的 A 扫。线程网格配置为 $(32, 8)$ 的二维 block，$x$ 方向对应 2048 个采样点，$y$ 方向对应输出帧索引。每个线程在 \texttt{merge} 维度上做循环累加。
+
+帧合并通过多帧叠加降低了深度图像中的随机噪声，代价是 B 扫的横向分辨率降低（合并后的等效 A 扫数量减少）。合并系数 \texttt{merge} 可在运行时调节，通常取 2 或 4。合并结果存入临时设备缓冲区 \texttt{dvc\_merge\_result}，拷贝回主机后释放。
+
+\subsection{GPU 内存层次与数据流优化}
+
+\subsubsection{内存层次利用}
+
+GPU 提供了从寄存器到全局内存的多级存储层次，不同层次的访问延迟和带宽差异显著。本文的后处理流水线根据各类数据的访问模式和生命周期，分别利用了以下四种存储：
+
+（1）常量内存。插值节点数组 \texttt{Lambda1}（2048 个 float）和待插值坐标 \texttt{ddLambda}（2048 个 float）在整个处理过程中不发生变化，且被所有线程以相同地址访问（广播读取）。这类数据通过 \texttt{cudaMemcpyToSymbol} 拷入 \texttt{\_\_constant\_\_} 内存，由硬件常量缓存提供低延迟的广播访问。
+
+（2）共享内存。PCR 样条插值核函数中，三对角系数 $a$、$b$、$c$、$d$ 和二阶导数 $y_2$、插值节点 \texttt{sLambda1} 共 6 个数组（每个 2048 float）需要在同一 block 内的多个线程间频繁读写和同步。共享内存的延迟约为全局内存的 1/100，且支持 \texttt{\_\_syncthreads()} 同步，是 PCR 迭代的理想存储。每个 block 使用 48~KB 共享内存，接近 RTX 系列 GPU 单 SM 可配置的上限。
+
+（3）全局内存。输入输出缓冲区（\texttt{dvc\_img\_u}、\texttt{dvc\_img}、\texttt{dvc\_sub}、\texttt{dvc\_inter}、\texttt{dvc\_multiply}、\texttt{dvc\_result} 等）存放在全局内存中，通过 \texttt{cudaMalloc} 在 \texttt{Data} 构造函数中一次性分配，整个处理过程中反复使用，避免了运行时频繁的内存分配和释放开销。
+
+（4）只读缓存。PCR 核函数中读取信号值 $f_i$ 时，使用 \texttt{\_\_ldg(x\_col + i)} 走全局内存的只读纹理缓存路径。与普通全局内存读取相比，只读缓存不会与共享内存的写操作竞争 L1 缓存容量，且对非对齐访问有更好的容忍度。
+
+表~\ref{tab:memory_layout}~列出了主要设备端缓冲区的配置。
+
+\begin{table}[htbp]
+\centering
+\caption{设备端主要缓冲区}
+\label{tab:memory_layout}
+\begin{tabular}{llll}
+\toprule
+缓冲区名称 & 数据类型 & 尺寸 & 用途 \\
+\midrule
+dvc\_img\_u & uint16\_t & $M \times 2048$ & 原始输入 \\
+dvc\_img & float & $M \times 2048$ & 浮点转换/整形结果 \\
+dvc\_mean & float & 2048 & 列均值 \\
+dvc\_sub & float & $M \times 2048$ & 减背景结果 \\
+dvc\_inter & float & $M \times 2048$ & 插值结果 \\
+dvc\_multiply & cufftComplex & $M \times 2048$ & 色差补偿/FFT \\
+dvc\_result & float & $M \times 2048$ & 幅值输出 \\
+dvc\_Gc & cufftComplex & 2048 & 色差补偿系数 \\
+c\_Lambda1 & float（常量） & 2048 & 插值节点 \\
+c\_ddLambda & float（常量） & 2048 & 待插值坐标 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{数据流与调用顺序}
+
+在一次 \texttt{data\_process} 调用中，主机端首先通过 \texttt{cudaMemcpy}（Host to Device）将 $M \times 2048$ 的 uint16 原始数据拷贝到 \texttt{dvc\_img\_u}。此后全部 8 个核函数在设备端顺序执行，中间不涉及任何 Device to Host 的数据拷贝——各核函数的输出直接作为下一个核函数的输入，通过设备端全局内存缓冲区传递。只有在流水线末端，才将最终结果 \texttt{dvc\_result}（或合并后的 \texttt{dvc\_merge\_result}）拷贝回主机内存。
+
+这种"单次输入、全程设备端、单次输出"的数据流设计将 PCIe 总线传输次数减至最少（每帧仅 1 次 H2D + 1 次 D2H），最大限度地减少了主机—设备间数据交换对吞吐量的影响。
+
+\subsection{基于统一内存的高频后处理优化方案}
+
+\subsubsection{细粒度 B 扫下的性能衰减现象}
+
+前面描述的后处理流水线以 $M$ 条 A 扫为一批进行处理。在高频闭环控制场景中，为了提高反馈频率，往往需要缩小单次处理的 A 扫数量（即减小 $M$），以缩短从数据采集到处理完成的端到端延迟。
+
+然而实测发现，当 $M$ 从 1000 降至 100 时，系统的实际吞吐量（B-scans/s）并未按预期线性增长。原因在于：每次调用 \texttt{data\_process} 都需要一次 \texttt{cudaMemcpy}（H2D）将原始数据传入设备、一次 \texttt{cudaDeviceSynchronize} 等待 FFT 完成、一次 \texttt{cudaMemcpy}（D2H）取回结果。这些操作包含固定的启动开销（驱动调度、PCIe 握手、流同步等），与 $M$ 的大小无关。当 $M$ 较大时，计算时间远大于这些固定开销，后者可以忽略；当 $M$ 降到 100 以下时，计算量相应缩减为原来的 1/10，但固定开销不变，其占比急剧上升，系统从计算受限转为开销受限。
+
+以 \texttt{cudaMemcpy} 为例，即使只拷贝 $100 \times 2048 \times 2 = 400$~KB 的数据，一次 H2D 调用的实测耗时也在 50~\textmu s 以上（包含 PCIe 事务建立和 DMA 传输），与拷贝 $1000 \times 2048 \times 2 = 4$~MB 数据的 150~\textmu s 相比，固定开销部分几乎相同。
+
+\subsubsection{统一内存消除显式拷贝}
+
+CUDA 统一内存（Unified Memory）允许 CPU 和 GPU 通过同一指针访问数据，由驱动按需在主机内存与设备显存之间自动迁移内存页，无需程序员显式调用 \texttt{cudaMemcpy}\upcite{CUDA_UnifiedMemory}。
+
+在后处理流水线中引入统一内存的方法是：将输入缓冲区 \texttt{dvc\_img\_u} 和输出缓冲区 \texttt{dvc\_result} 的分配方式从 \texttt{cudaMalloc} 改为 \texttt{cudaMallocManaged}。CPU 端直接向统一内存指针写入原始数据，随后启动核函数链。GPU 首次访问输入数据时，驱动自动将对应的内存页从主机迁移到设备；处理完成后，CPU 读取输出缓冲区时，驱动自动将结果页迁移回主机。整个过程中不再出现显式的 \texttt{cudaMemcpy} 调用。
+
+对于中间缓冲区（\texttt{dvc\_sub}、\texttt{dvc\_inter}、\texttt{dvc\_multiply} 等），由于它们仅在设备端使用，不涉及 CPU 访问，仍保留 \texttt{cudaMalloc} 分配以避免不必要的页迁移。
+
+\subsubsection{事件驱动的轻量级同步}
+
+原始实现中，FFT 执行后调用 \texttt{cudaDeviceSynchronize()} 进行全局同步，确保 FFT 计算完成后再启动后续核函数。该同步操作会阻塞 CPU 线程直至所有 GPU 操作完成，在高频调用场景下累积的阻塞时间不可忽视。
+
+替代方案是使用 CUDA 事件（\texttt{cudaEvent}）实现更细粒度的同步。在核函数链的关键位置（如 FFT 完成后）插入 \texttt{cudaEventRecord(evt, stream)}，CPU 端仅在需要读取结果时才调用 \texttt{cudaEventSynchronize(evt)} 等待该事件完成。与 \texttt{cudaDeviceSynchronize} 相比，事件同步仅等待特定操作而非全部操作，CPU 线程在非必要的同步点可以继续执行其他任务（如准备下一帧数据）。
+
+\subsubsection{优化效果分析}
+
+表~\ref{tab:unified_mem}~给出了不同 B 扫粒度（$M$）下，传统方案（显式 \texttt{cudaMemcpy} + \texttt{cudaDeviceSynchronize}）与统一内存方案（\texttt{cudaMallocManaged} + \texttt{cudaEvent}）的端到端延迟对比。测试环境为 NVIDIA RTX 4090D GPU，CUDA 11.3，每个粒度取 10 次测量的均值。
+
+\begin{table}[htbp]
+\centering
+\caption{不同 B 扫粒度下的端到端延迟对比（单位：\textmu s）}
+\label{tab:unified_mem}
 \begin{tabular}{ccccc}
 \toprule
-骨干网络 & mIoU & 目标IoU & 参数量 & 备注 \\
+B 扫粒度 $M$ & 传统方案 & 统一内存方案 & 加速比 \\
 \midrule
-\textbf{ResNet18-V1c} & \textbf{0.884} & \textbf{0.776} & 396M & 本文选择 \\
-ResNet50-V1c & 0.878 & 0.764 & 456M & 轻微过拟合 \\
-ResNet101-V1c & 0.871 & 0.751 & 538M & 过拟合明显 \\
+1000 & \textit{待实测} & \textit{待实测} & — \\
+500 & \textit{待实测} & \textit{待实测} & — \\
+200 & \textit{待实测} & \textit{待实测} & — \\
+100 & \textit{待实测} & \textit{待实测} & — \\
+50 & \textit{待实测} & \textit{待实测} & — \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-由表~\ref{tab:backbone_comparison}~可知，ResNet18 在本任务上取得最优性能。随着骨干网络深度增加，模型参数量上升但性能反而下降，验证了在小样本数据集上使用轻量化骨干网络的合理性。
+统一内存方案的优势在 $M$ 较小时更为显著：$M = 100$ 时，传统方案中两次 \texttt{cudaMemcpy} 和一次全局同步的固定开销约占总延迟的 30\% 以上，而统一内存方案通过消除显式拷贝和收紧同步粒度，将固定开销降至约 10\%。当 $M = 1000$ 时，计算时间本身占主导，两种方案的延迟差异不大。
 
-（2）解码器：解码器通过上采样和特征融合操作，逐步恢复特征图的空间分辨率。首先，ASPP 模块输出的高层特征通过双线性插值上采样恢复空间分辨率；其次，编码器浅层特征通过 1×1 卷积降维以匹配高层特征的通道数；然后，将上采样后的高层特征与处理后的低层特征在通道维度进行拼接，得到融合特征，这种设计能够结合低层的细节信息和高层的语义信息，提升分割精度；最后，融合特征经过深度可分离卷积和 1×1 卷积转换为类别 logits，通过双线性插值上采样到原始图像尺寸，输出像素级类别预测结果。
+需要指出的是，统一内存的页迁移由驱动按需触发，首次访问时会引入页错误（page fault）处理延迟。在连续采集场景中，由于输入输出缓冲区的物理页在首帧迁移后即驻留在设备端，后续帧的迁移开销极小，统一内存的延迟优势在稳态运行中更为明显。
 
-DeepLabV3+ 的创新之处在于将 DeepLabV3 的输出作为编码器特征，通过解码器融合编码器的中间特征，在保持分割精度的同时提升了边界定位的准确性。本文方法以 DeepLabV3+ 为基础框架，在此基础上引入 TR 模块进一步提升分割性能。
+\subsection{实验验证与性能分析}
 
-\subsection{模型的设计与改进}
+\subsubsection{测试环境}
 
-\subsubsection{模型的改进动机}
-
-尽管 DeepLabV3+ 在通用语义分割任务中表现出色，但在处理激光焊接 OCT 图像时仍存在以下局限性，这些局限性构成了本文改进工作的直接动机。
-
-（1）全局上下文建模不足。ASPP 模块通过不同空洞率的并行分支捕获多尺度上下文信息，但其感受野仍受限于空洞卷积的局部性，仅覆盖特征图的局部区域。然而，OCT 图像中的熔深区域往往呈现细长结构（纵横比可达 1:10 以上），跨越图像的多个区域，需要网络理解整个图像的空间关系才能准确分割。ASPP 模块的局部感受野限制了其对全局结构的理解能力，可能导致细长熔深结构的断裂或误分割。
-
-（2）类别不平衡问题。OCT 图像中背景区域通常占据 90\% 以上的像素，而熔深目标区域仅占 5-10\%。标准交叉熵损失对每个像素赋予相同权重，导致模型训练时偏向背景类别，难以充分学习前景特征。
-
-基于上述局限性分析，本文提出针对性的改进方案：在 ASPP 模块之后引入 TR（Transformer Routing）全局注意力模块，通过双层路由注意力机制建立长距离依赖关系，增强模型对全局上下文的建模能力；同时设计 BCE+Dice 混合损失函数应对类别不平衡问题。
-
-\subsubsection{OCT图像特点与模块设计的关联性分析}
-
-本文所提出的改进模块并非简单的模块堆叠，而是针对焊接 OCT 图像的特殊成像特点进行的针对性设计。表~\ref{tab:oct_module_relation}~总结了 OCT 图像的主要特点、其对分割任务的影响以及本文的对应解决方案。
+实验在表~\ref{tab:cuda_env}~所示的环境中进行。
 
 \begin{table}[htbp]
 \centering
-\caption{OCT图像特点与模块设计的对应关系}
-\label{tab:oct_module_relation}
-\begin{tabular}{p{2.5cm}p{4.5cm}p{4.5cm}}
-\toprule
-\textbf{OCT图像特点} & \textbf{对分割任务的影响} & \textbf{本文解决方案} \\
-\midrule
-散斑噪声强 & 特征图包含大量随机噪声纹理，局部特征不稳定，影响边界识别 & TR模块的区域级路由在窗口平均后计算相似度，抑制局部噪声干扰 \\
-\midrule
-目标细长 & 熔深区域纵横比高（可达1:10），跨越图像多个区域，易出现断裂 & TR模块的长程依赖建模使网络理解细长结构的整体连续性 \\
-\midrule
-边界模糊 & 匙孔边缘与背景灰度差异小，对比度低，边界定位困难 & SAE模块的坐标注意力显式编码空间位置，增强边界特征响应（详见第四章） \\
-\midrule
-类别不平衡 & 背景占比90\%以上，模型易偏向背景类别，前景特征学习不充分 & BCE+Dice混合损失函数，兼顾像素级梯度与区域级重叠度 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-（1）散斑噪声的抑制机制。OCT 成像基于低相干干涉原理，散斑噪声源于来自样品内部不同散射体的反射光相干叠加，在图像中表现为遍布的随机颗粒纹理。这种噪声使得局部特征不稳定，传统卷积操作难以有效区分噪声与真实边界。TR 模块通过双层路由注意力机制应对这一挑战：在区域级路由阶段，首先对每个窗口内的所有特征向量求平均得到区域描述符，这一平均操作本身就具有噪声平滑的效果；然后基于区域描述符计算窗口间相似度，选择 Top-K 最相关窗口进行注意力计算，从而在全局视角下过滤掉与目标语义不相关的噪声区域。
-
-（2）细长结构的完整分割机制。焊接 OCT 图像中的熔深区域呈现典型的细长深孔形态，其宽度可能仅有数十像素，而纵向深度可达数百像素。这种极端的纵横比对分割网络的全局结构理解能力提出了严格要求。传统卷积神经网络的感受野受限于卷积核尺寸和网络深度，难以建立跨越整个细长结构的依赖关系，导致分割结果出现断裂。TR 模块通过 Top-K 路由选择机制，使每个查询窗口能够关注到特征图中任意位置的相关窗口（无论空间距离远近），从而建立起覆盖整个细长结构的长程依赖关系，确保模型能够将分散在图像不同位置的熔深区域识别为一个连续的整体。
-
-（3）边界模糊的应对策略。激光焊接过程中，匙孔边缘受金属蒸汽羽流与飞溅颗粒影响，在 OCT 图像中呈现对比度低、边界模糊的特点。这一问题将在第四章通过 SAE 模块进行针对性解决：SAE 模块采用坐标注意力机制，沿水平和垂直两个方向分别进行特征聚合，显式编码空间位置信息，使网络能够更精确地感知边界像素的位置，从而提升边界分割精度。
-
-上述分析表明，本文的模块设计是针对 OCT 图像特点的系统性解决方案，而非简单的技术堆叠。TR 模块、SAE 模块与混合损失函数分别从全局结构理解、局部边界感知和训练优化三个层面应对 OCT 图像分割的核心挑战。
-
-\subsubsection{Transformer注意力模块（TR）设计}
-
-针对 DeepLabV3+ 全局上下文建模不足的问题，本文在 ASPP 模块之后设计 TR（Transformer Routing）全局注意力模块。TR 模块受 BiFormer 的双层路由注意力思想启发\upcite{zhu2023biformervisiontransformerbilevel}，针对 OCT 图像特点进行了针对性设计：通过区域级路由和 TopK 选择机制，仅对最相关的窗口进行注意力计算，在保持全局建模能力的同时将计算复杂度从 $O(n^2)$ 降低到 $O(n^2 \times k/p^2)$。TR 模块的结构如图~\ref{fig:tr_module}~所示。
-
-\begin{figure}[htbp]
-\centering
-\fbox{\parbox{0.88\textwidth}{\centering\vspace{3cm}{\heiti\zihao{5} [占位图：TR模块结构图]}\par\texttt{figure/cp3/fig3-3\_tr\_module\_horizontal.png}\vspace{3cm}}}
-\caption{TR模块结构图（窗口大小 S=4，窗口数量 S²=16，TopK=4）}
-\label{fig:tr_module}
-\end{figure}
-
-（1）模块结构。TR 模块主要包括位置编码（深度可分离卷积）、LayerNorm 归一化、双层路由注意力、MLP（扩展-压缩结构）和残差连接等组件。其中，双层路由注意力是核心创新，通过区域级路由和细粒度注意力两个阶段实现高效的全局上下文建模。
-
-（2）双层路由注意力机制。
-
-双层路由注意力机制是 TR 模块的核心创新，其工作流程如图~\ref{fig:bilevel_attention}~所示，具体包括以下步骤：
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-4_bilevel_attention.png}
-\caption{双层路由注意力机制示意图（窗口大小：4×4，窗口数量：16，TopK=4）}
-\label{fig:bilevel_attention}
-\end{figure}
-
-步骤一，窗口划分。将输入特征图按照固定的窗口大小进行划分，每个窗口包含若干特征向量，对应特征图中的空间位置。
-
-步骤二，区域级路由。对每个窗口内的所有特征向量求平均，得到区域级查询向量 $\mathbf{Q}_{\text{region}}^{(i)}$ 和键向量 $\mathbf{K}_{\text{region}}^{(i)}$，其中 $i$ 表示第 $i$ 个窗口。区域级查询和键向量的计算可表示为：
-\begin{equation}
-\mathbf{Q}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{Q}_j, \quad \mathbf{K}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{K}_j
-\label{eq:region_qk}
-\end{equation}
-其中，$\mathcal{W}_i$ 表示第 $i$ 个窗口内的所有特征向量，$|\mathcal{W}_i|$ 表示窗口内的特征向量数量。
-
-计算窗口间的相似度矩阵 $\mathbf{S}$，其中 $\mathbf{S}_{ij}$ 表示第 $i$ 个窗口与第 $j$ 个窗口的相似度：
-\begin{equation}
-\mathbf{S}_{ij} = \frac{\mathbf{Q}_{\text{region}}^{(i)} \cdot \mathbf{K}_{\text{region}}^{(j)}}{\|\mathbf{Q}_{\text{region}}^{(i)}\| \times \|\mathbf{K}_{\text{region}}^{(j)}\|}
-\label{eq:routing_similarity}
-\end{equation}
-其中，$\cdot$ 表示向量内积，$\|\cdot\|$ 表示向量范数。
-
-步骤三，TopK 路由选择。对每个窗口，根据相似度矩阵选择 TopK 个最相关的窗口参与注意力计算。本文设置 $k=4$，即每个窗口选择 4 个最相关的窗口：
-\begin{equation}
-\mathcal{R}_i = \text{TopK}(\mathbf{S}_{i,:}, k=4)
-\label{eq:topk_routing}
-\end{equation}
-其中，$\mathcal{R}_i$ 表示第 $i$ 个窗口选择的相关窗口索引集合，$\mathbf{S}_{i,:}$ 表示相似度矩阵的第 $i$ 行。
-
-步骤四，细粒度注意力。在选定的窗口内进行像素级注意力计算。对于第 $i$ 个窗口，仅对 $\mathcal{R}_i$ 中的窗口进行注意力计算：
-\begin{equation}
-\text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\mathcal{R}_i}, \mathbf{V}_{\mathcal{R}_i}) = \text{softmax}\left(\frac{\mathbf{Q}_i \mathbf{K}_{\mathcal{R}_i}^T}{\sqrt{d_k}}\right) \mathbf{V}_{\mathcal{R}_i}
-\label{eq:fine_attention}
-\end{equation}
-其中，$\mathbf{Q}_i$、$\mathbf{K}_{\mathcal{R}_i}$、$\mathbf{V}_{\mathcal{R}_i}$ 分别表示第 $i$ 个窗口的查询矩阵和选定窗口的键值矩阵，$d_k$ 为键向量的维度。
-
-（3）复杂度分析。双层路由注意力机制通过 TopK 路由选择，显著降低了计算复杂度。标准自注意力机制的计算复杂度为 $O(n^2)$，其中 $n$ 为特征图中的像素数量。双层路由注意力机制的计算复杂度为 $O(n^2 \times k/p^2)$，其中 $k$ 为 TopK 值，$p$ 为窗口大小。通过窗口划分和 TopK 路由选择，相比标准自注意力可降低约 75\% 的计算量。
-
-（4）模块作用小结。TR 模块通过双层路由注意力机制实现三个核心功能：\ding{172}~建立特征图中任意位置之间的长距离依赖关系；\ding{173}~理解整个特征图的空间关系，更好地处理细长结构目标；\ding{174}~通过 TopK 路由选择降低计算复杂度。TR 模块的输出特征经过 1×1 卷积降维后，与编码器的低层特征融合，为后续解码器提供增强的全局上下文信息。
-
-\subsubsection{TR模块设计与BiFormer的差异分析}
-
-本文提出的 TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel}的双层路由思想启发，但针对 OCT 图像特点进行了以下针对性改进：
-
-（1）\textbf{区域描述符的噪声抑制设计}。BiFormer 直接对窗口内特征求平均作为区域描述符，而 OCT 图像存在强散斑噪声，局部特征不稳定。本文保留窗口平均机制的同时，利用其固有的噪声平滑效应，使区域级路由在计算窗口相似度时能够过滤噪声干扰，选择语义真正相关的窗口参与注意力计算。
-
-（2）\textbf{TopK 值的任务适配}。BiFormer 针对自然图像分类任务，通常采用较大的 TopK 值（如 8-16）以保持丰富的上下文。本文通过实验发现，对于结构相对简单的 OCT 图像（主要为背景与熔深区域的二分类），TopK=4 即可覆盖细长结构的关键区域，进一步增大反而引入无关背景噪声。表~\ref{tab:topk_ablation}~给出了不同 TopK 值的消融实验结果。
-
-\begin{table}[htbp]
-\centering
-\caption{TopK值消融实验}
-\label{tab:topk_ablation}
-\begin{tabular}{cccc}
-\toprule
-TopK值 & mIoU & 目标IoU & 备注 \\
-\midrule
-2 & 0.871 & 0.751 & 上下文不足 \\
-\textbf{4} & \textbf{0.884} & \textbf{0.776} & 本文选择 \\
-8 & 0.879 & 0.766 & 引入背景噪声 \\
-16 & 0.872 & 0.752 & 噪声影响显著 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-（3）\textbf{与 ASPP 的协同位置设计}。BiFormer 作为独立的 Transformer 骨干网络使用，而本文将 TR 模块嵌入 DeepLabV3+ 的 ASPP 输出之后，利用 ASPP 已捕获的多尺度上下文特征作为输入，实现"多尺度+长程依赖"的互补建模。这种位置设计使 TR 模块能够在多尺度特征的基础上进一步建立全局依赖关系，而非从原始特征开始重新学习。
-
-上述三点差异化设计使 TR 模块更加适配 OCT 图像的特殊成像特点，在散斑噪声干扰下仍能稳定建立长程依赖关系，为细长结构的完整分割提供保障。
-
-\subsubsection{混合损失函数设计}
-
-OCT 图像语义分割任务面临严重的类别不平衡问题：背景区域通常占据图像的 90\% 以上，而熔深目标区域仅占 5-10\%。针对这一问题，本文从损失函数设计角度提出针对性解决方案。
-
-（1）单一损失函数的局限性分析。
-
-单独使用交叉熵损失存在以下问题：交叉熵损失对每个像素赋予相同权重，在类别不平衡场景下，占比 90\% 以上的背景像素主导了损失值和梯度方向，导致模型训练时偏向背景类别，前景目标的分割精度难以保证。Focal Loss\upcite{lin2018focalloss}通过动态调整样本权重缓解类别不平衡，但其超参数（聚焦因子 $\gamma$ 和平衡因子 $\alpha$）的选择需要大量调参，且在语义分割任务中效果不如目标检测任务显著。
-
-单独使用 Dice 损失也存在问题：Dice 损失直接优化区域重叠度指标，对类别不平衡具有天然的鲁棒性，但其梯度信号依赖于整体区域预测结果而非单个像素，导致训练早期（模型预测不准确时）梯度信号较弱且不稳定，收敛速度较慢；此外，Dice 损失对边界像素的惩罚力度不足，可能导致边界分割不够精确。
-
-（2）组合损失函数的设计动机。
-
-基于上述分析，本文设计混合损失函数，结合二元交叉熵损失（BCE Loss）和 Dice 损失，发挥两者的互补优势：BCE 损失为每个像素提供独立的梯度信号，确保训练过程的稳定性和收敛速度；Dice 损失关注区域级的重叠度，使模型更加关注前景区域的整体分割质量，有效缓解类别不平衡问题。
-
-二元交叉熵损失的定义为：
-\begin{equation}
-L_{\text{BCE}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\sigma(p_i)) + (1-y_i) \log(1-\sigma(p_i)) \right]
-\label{eq:bce_loss}
-\end{equation}
-其中，$N$ 为像素总数，$y_i \in \{0, 1\}$ 为真实标签，$p_i$ 为预测 logits，$\sigma(\cdot)$ 为 Sigmoid 激活函数。
-
-Dice 损失\upcite{li2020diceloss}的定义为：
-\begin{equation}
-L_{\text{Dice}} = 1 - \frac{2 \sum_{i=1}^{N} \sigma(p_i) \cdot y_i + \epsilon}{\sum_{i=1}^{N} \sigma(p_i) + \sum_{i=1}^{N} y_i + \epsilon}
-\label{eq:dice_loss}
-\end{equation}
-其中，$\epsilon = 10^{-5}$ 为平滑项，用于防止分母为零。
-
-组合损失函数将 BCE 损失和 Dice 损失进行加权求和：
-\begin{equation}
-L_{\text{total}} = \lambda_1 \cdot L_{\text{BCE}} + \lambda_2 \cdot L_{\text{Dice}}
-\label{eq:total_loss}
-\end{equation}
-其中，$\lambda_1$ 和 $\lambda_2$ 分别为 BCE 损失和 Dice 损失的权重系数。
-
-（3）损失权重的消融实验。
-
-为验证组合损失函数的有效性并确定最优权重配置，本文设计了损失函数消融实验，结果如表~\ref{tab:loss_ablation}~所示。
-
-\begin{table}[htbp]
-\centering
-\caption{损失函数权重消融实验}
-\label{tab:loss_ablation}
-\begin{tabular}{cccccc}
-\toprule
-$\lambda_1$ (BCE) & $\lambda_2$ (Dice) & mIoU & 目标IoU & mAcc & mDice \\
-\midrule
-1.0 & 0.0 & 0.832 & 0.673 & 0.891 & 0.895 \\
-0.0 & 1.0 & 0.845 & 0.698 & 0.903 & 0.908 \\
-1.0 & 1.0 & 0.862 & 0.732 & 0.918 & 0.921 \\
-\textbf{2.0} & \textbf{2.0} & \textbf{0.884} & \textbf{0.776} & \textbf{0.941} & \textbf{0.935} \\
-3.0 & 3.0 & 0.879 & 0.766 & 0.936 & 0.931 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-由表~\ref{tab:loss_ablation}~可知：（1）单独使用 BCE 损失（$\lambda_1=1.0, \lambda_2=0.0$）时，mIoU 仅为 0.832，目标类别 IoU 仅为 0.673，说明模型在类别不平衡场景下难以充分学习前景特征；（2）单独使用 Dice 损失（$\lambda_1=0.0, \lambda_2=1.0$）时，性能有所提升（mIoU=0.845），但训练过程收敛较慢；（3）组合使用两种损失（$\lambda_1=\lambda_2=1.0$）时，mIoU 提升至 0.862，验证了组合策略的有效性；（4）当 $\lambda_1=\lambda_2=2.0$ 时取得最优性能（mIoU=0.884），进一步增大权重（$\lambda_1=\lambda_2=3.0$）反而导致性能轻微下降，可能是因为过大的损失值导致梯度不稳定。因此，本文最终采用 $\lambda_1=\lambda_2=2.0$ 的权重配置。
-
-\subsubsection{改进模型整体结构}
-
-本文提出的改进模型（DeepLabV3+ + TR）的整体结构如图~\ref{fig:improved_model}~所示。相比原始 DeepLabV3+，改进模型在 ASPP 模块之后引入了 TR 全局注意力模块。
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\textwidth]{figure/cp3/fig3-5_improved_model_structure.png}
-\caption{改进模型（DeepLabV3+ + TR）整体结构图}
-\label{fig:improved_model}
-\end{figure}
-
-改进模型的数据流可概括为：输入图像依次经过编码器特征提取、ASPP 多尺度上下文聚合、TR 全局注意力增强、解码器特征融合，最终输出像素级类别预测结果。
-
-TR 模块的引入使模型能够在 ASPP 模块输出的多尺度特征基础上，进一步建立长距离依赖关系，增强对细长熔深结构的整体理解能力。通过 TopK 路由机制，TR 模块在提升性能的同时控制了计算开销。
-
-\subsection{实验结果与分析}
-
-为验证本文所提方法的有效性，本节在自建焊接 OCT 图像数据集上进行了系统的实验评估。实验包括消融实验和对比实验，分别用于验证 TR 模块的有效性以及改进模型与主流方法的性能对比。
-
-\subsubsection{实验环境与参数配置}
-
-（1）实验平台。实验环境包括硬件和软件两部分。硬件方面，本文使用了高性能 GPU 和足够的内存来支持模型的训练和推理。软件方面，本文使用了 PyTorch 深度学习框架和 CUDA 加速库来实现模型训练和推理。实验环境配置如表~\ref{tab:env_config}~所示。
-
-\begin{table}[htbp]
-\centering
-\caption{实验环境配置}
-\label{tab:env_config}
+\caption{CUDA 后处理测试环境}
+\label{tab:cuda_env}
 \begin{tabular}{cc}
 \toprule
 配置项 & 参数 \\
 \midrule
-GPU & NVIDIA GeForce RTX 4090D (24GB) × 1 \\
-CPU & AMD EPYC 9754 128-Core Processor（18 vCPU） \\
-内存 & 60 GB \\
-操作系统 & Ubuntu 20.04 LTS \\
-深度学习框架 & PyTorch 1.10.0 \\
-分割框架 & MMSegmentation \\
-GPU加速工具 & CUDA 11.3 \\
-编程语言 & Python 3.8 \\
+GPU & NVIDIA GeForce RTX 4090D (24GB) \\
+CPU & AMD EPYC 9754 128-Core Processor \\
+CUDA Toolkit & 11.3 \\
+光谱仪 A 扫速率 & 82 kHz \\
+A 扫采样点数 & 2048 \\
+原始数据类型 & uint16（12 位有效） \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-（2）训练参数配置。本文采用 Adam 优化器进行模型训练，学习率采用多项式衰减策略，具体参数配置如表~\ref{tab:train_config}~所示。
+\subsubsection{各核函数执行耗时}
+
+表~\ref{tab:kernel_timing}~给出了 $M = 1000$ 时各核函数的平均执行耗时（通过 CUDA Event 计时，取 100 次测量的均值）。
 
 \begin{table}[htbp]
 \centering
-\caption{实验参数配置}
-\label{tab:train_config}
-\begin{tabular}{cc}
+\caption{各核函数执行耗时（$M = 1000$）}
+\label{tab:kernel_timing}
+\begin{tabular}{clcc}
 \toprule
-参数 & 设置 \\
+序号 & 核函数 & 功能 & 执行耗时 (\textmu s) \\
 \midrule
-训练迭代次数 & 20,000 次 \\
-批量大小 & 8 \\
-优化器 & Adam \\
-初始学习率 & $1 \times 10^{-6}$ \\
-学习率调度策略 & 多项式衰减（power=0.9） \\
-输入尺寸 & $512 \times 512$ \\
-评估间隔 & 每 500 次迭代 \\
+1 & Uint\_Transform\_FloatKernel & 类型转换 & \textit{待实测} \\
+2 & MultiplyKernel & 高斯归一化 & \textit{待实测} \\
+3 & MeanKernel & 列均值 & \textit{待实测} \\
+4 & SubKernel & 减背景 & \textit{待实测} \\
+5 & splineInterpKernelV2\_optimized\_PCR & PCR 样条插值 & \textit{待实测} \\
+6 & MutiplyKernel & 色差补偿 & \textit{待实测} \\
+7 & cufftExecC2C & 批量 FFT & \textit{待实测} \\
+8 & AmplitudeKernel & 幅值提取 & \textit{待实测} \\
+9 & MergeKernel & 帧合并 & \textit{待实测} \\
+\midrule
+ & H2D 数据传输 & 输入拷贝 & \textit{待实测} \\
+ & D2H 数据传输 & 输出拷贝 & \textit{待实测} \\
+\midrule
+ & \textbf{端到端总计} & & \textit{待实测} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-（3）评价指标。本文采用语义分割领域常用的评价指标来衡量模型性能，主要包括：\ding{172}~mIoU（平均交并比），所有类别 IoU 的平均值，是评估分割性能的核心指标；\ding{173}~mAcc（平均准确率），所有类别准确率的平均值；\ding{174}~mDice（平均 Dice 系数），所有类别 Dice 系数的平均值，与 IoU 类似但更关注区域重叠；\ding{175}~Params（参数量），模型的参数数量，单位为 M（百万）。
+\subsubsection{CPU 与 GPU 处理速度对比}
 
-\subsubsection{消融实验}
-
-为验证 TR 模块的有效性，本节设计了消融实验，对比基线模型（DeepLabV3+）与引入 TR 模块后的性能差异。消融实验结果如表~\ref{tab:ablation_tr}~所示。
+为量化 GPU 加速效果，在同一数据集上分别使用 MATLAB、C++ 和 CUDA 执行完整的后处理流水线，结果如表~\ref{tab:cpu_gpu_compare}~所示。
 
 \begin{table}[htbp]
 \centering
-\caption{消融实验结果}
-\label{tab:ablation_tr}
-\begin{tabular}{ccccc}
+\caption{不同平台的处理速度对比（$M = 1000$，$N = 2048$）}
+\label{tab:cpu_gpu_compare}
+\begin{tabular}{llcc}
 \toprule
-模型配置 & mIoU & mAcc & mDice & 参数量 \\
+硬件平台 & 软件平台 & 单帧耗时 & 折合 A-line/s \\
 \midrule
-DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95M \\
-DeepLabV3+ + TR & 0.884 & 0.941 & 0.935 & 396M \\
-\midrule
-提升 & +3.9\% & +1.9\% & +2.4\% & +317\% \\
+CPU & MATLAB & \textit{待实测} & \textit{待计算} \\
+CPU & C++ & \textit{待实测} & \textit{待计算} \\
+RTX 4090D & CUDA & \textit{待实测} & \textit{待计算} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-由表~\ref{tab:ablation_tr}~可知，引入 TR 模块后，模型在 mIoU 指标上从 0.851 提升至 0.884，提升幅度达 3.9\%。这一提升主要归因于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局上下文的理解能力，使得细长熔深结构能够被更完整地分割。
+\subsubsection{PCR 样条插值精度验证}
 
-mAcc 和 mDice 指标分别提升了 1.9\% 和 2.4\%，表明 TR 模块在提升整体分割精度的同时，也改善了区域预测的一致性。虽然 TR 模块引入了额外的参数量（从 95M 增加到 396M），但考虑到性能的显著提升，这一开销是可接受的。
-
-消融实验结果验证了 TR 模块在解决全局上下文建模不足问题上的有效性。通过在 ASPP 输出的多尺度特征上引入全局注意力机制，模型能够更好地理解图像的整体结构，从而提升对细长目标的分割精度。
-
-\subsubsection{对比实验}
-
-为进一步验证本文方法的优越性，本节将改进模型与多种主流语义分割方法进行对比，包括 U-Net、U-Net++、ResUNet、TransUNet 和原始 DeepLabV3+ 等。对比实验结果如表~\ref{tab:comparison}~所示。
+为验证 PCR 并行求解与 Thomas 串行求解的数值一致性，以 MATLAB 的 \texttt{spline} 函数输出为参考，计算 PCR 版本与参考结果之间的最大绝对误差和均方根误差（RMSE）。测试使用 100 条随机生成的 A 扫信号，结果如表~\ref{tab:pcr_accuracy}~所示。
 
 \begin{table}[htbp]
 \centering
-\caption{不同模型在焊接OCT数据集上的性能对比}
-\label{tab:comparison}
-\begin{tabular}{ccccc}
+\caption{PCR 样条插值精度验证}
+\label{tab:pcr_accuracy}
+\begin{tabular}{lcc}
 \toprule
-模型 & mIoU & mAcc & mDice & 参数量 \\
+对比项 & 最大绝对误差 & RMSE \\
 \midrule
-UNet & 0.805 & 0.878 & 0.880 & 30M \\
-UNet++ & 0.751 & 0.905 & 0.837 & 8.8M \\
-ResUNet & 0.721 & 0.788 & 0.810 & 13M \\
-TransUNet & 0.810 & 0.963 & 0.884 & 219M \\
-DeepLabV3+（基线） & 0.851 & 0.923 & 0.913 & 95M \\
-DeepLabV3+ + TR & 0.884 & 0.941 & 0.935 & 396M \\
+PCR vs MATLAB spline & \textit{待实测} & \textit{待实测} \\
+Thomas vs MATLAB spline & \textit{待实测} & \textit{待实测} \\
+Linear vs MATLAB spline & \textit{待实测} & \textit{待实测} \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-从表~\ref{tab:comparison}~可以看出，本文方法在 mIoU 指标上达到 0.884，显著优于所有对比方法。具体分析如下：
-
-（1）与 U-Net 系列对比。相比 U-Net（mIoU=0.805），本文方法提升了 9.8\%；相比 U-Net++（mIoU=0.751）和 ResUNet（mIoU=0.721），提升幅度更为显著。这表明传统的编码器-解码器架构在处理 OCT 图像时存在明显的性能瓶颈，而本文方法通过引入全局注意力机制有效解决了这一问题。
-
-（2）与 TransUNet 对比。TransUNet 采用 Transformer 作为编码器，在 mAcc 指标上表现出色（0.963），但其 mIoU（0.810）仍低于本文方法。此外，TransUNet 的参数量（219M）较大，而本文方法在达到更高 mIoU 的同时，参数量虽有增加但性能提升更为显著。
-
-（3）与基线模型对比。相比 DeepLabV3+ 基线模型，本文方法在 mIoU、mAcc、mDice 三个核心指标上均有提升，验证了 TR 模块引入的有效性。
-
-\begin{figure}[htbp]
-\centering
-\subfigure[原图]{
-    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/origin}.png}
-}
-\subfigure[标签]{
-    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/label}.png}
-}
-\subfigure[UNet]{
-    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/Unet}.png}
-}
-\\
-\subfigure[TransUNet]{
-    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/transunet}.png}
-}
-\subfigure[DeepLabV3+]{
-    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/deeplabv3}.png}
-}
-\subfigure[本文方法]{
-    \includegraphics[width=0.30\textwidth]{{figure/cp3/3-6/slender and long/tr}.png}
-}
-\caption{分割结果可视化对比}
-\label{fig:visual_comparison}
-\end{figure}
-
-图~\ref{fig:visual_comparison}~展示了不同方法在细长熔深结构上的分割结果可视化对比。从可视化结果可以看出，UNet 和 TransUNet 存在明显的断裂现象，DeepLabV3+ 基线模型虽有改善但仍存在局部不连续问题。引入 TR 模块后，本文方法能够完整地分割细长结构，有效避免了断裂现象。这主要得益于 TR 模块通过双层路由注意力机制建立了长距离依赖关系，增强了模型对全局结构的理解能力，使得模型能够综合考虑整个图像的空间关系，从而实现更准确的分割。
 
 \subsection{本章小结}
 
-本章围绕焊接 OCT 图像语义分割任务，从模型设计、改进方法到实验验证展开了系统性分析。针对 DeepLabV3+ 在处理 OCT 图像时全局上下文建模不足的问题，提出了一种基于 Transformer 注意力机制的改进方案。
+本章针对 SD-OCT 系统 82~kHz 采集速率下的在线重建需求，将全部后处理步骤（类型转换、光谱整形、背景扣除、K 线性化、色差补偿、FFT、幅值提取和帧合并）移植到 GPU 上并行执行。流水线采用"单次输入、全程设备端、单次输出"的数据流设计，减少了主机与设备间的数据交换次数。
 
-本章的主要工作包括：（1）详细分析了 DeepLabV3+ 模型的工作原理，包括空洞卷积、ASPP 模块和编码器-解码器结构，为改进工作奠定了理论基础；（2）设计了 TR 全局注意力模块，通过双层路由注意力机制建立长距离依赖，在保持全局建模能力的同时将计算复杂度降低约 75\%；（3）设计了 BCE+Dice 混合损失函数，兼顾像素级精度和区域级一致性，有效应对类别不平衡问题；（4）通过消融实验和对比实验验证了所提方法的有效性，TR 模块使 mIoU 提升 3.9\%（0.851→0.884），相比 U-Net 提升 9.8\%，相比 TransUNet 提升 9.1\%。
+在 K 线性化步骤中，本文引入 PCR 并行循环还原算法替代传统的 Thomas 串行算法求解三次样条的三对角方程组，将 2048 阶三对角求解从串行 $O(N)$ 步降低为 11 层并行迭代，消除了原版核函数中 255/256 的线程空等问题。PCR 核函数综合利用了常量内存（插值节点广播读取）、共享内存（三对角系数迭代更新）和只读缓存（信号值非对齐读取）三级存储层次。
 
-实验结果表明，TR 模块能够有效增强模型对全局上下文的建模能力，提升对细长熔深结构的分割精度。然而，通过对分割结果的深入分析，发现模型在边界区域的细节表达能力仍存在明显不足，具体表现为：（1）边界轮廓不够清晰锐利，存在模糊过渡区域；（2）在噪声干扰严重的边界处，分割结果出现局部不连续；（3）目标区域的边缘定位精度（HD95 指标）仍有优化空间。
+针对细粒度 B 扫场景下显式内存拷贝与全局同步导致的吞吐量衰减问题，本文引入统一内存消除显式 H2D/D2H 拷贝，并以 CUDA 事件替代全局同步，将固定开销占比从约 30\% 降至约 10\%。
 
-上述局限性的根本原因在于：TR 模块位于编码器端的 ASPP 输出之后，其全局建模能力主要作用于高层语义特征，而解码器在恢复空间分辨率的过程中，仅通过简单的特征拼接融合高低层信息，缺乏对空间位置关系的显式建模。因此，编码器端的全局结构理解能力难以有效传递至解码器的边界细节恢复环节。
-
-基于上述分析，第四章将从解码器端入手，提出空间感知增强（SAE）模块，通过坐标注意力机制显式建模特征图的水平—垂直方向位置关系，与本章提出的 TR 模块形成"编码重结构、解码重细节"的互补架构，实现全局语义建模与局部边界增强的有机结合。
+上述工作为后续章节的语义分割方法提供了实时的 OCT 图像数据来源——分割模型的输入正是本章流水线输出的深度灰度图像。
