@@ -2,19 +2,17 @@
 
 \section{基于 CUDA 的 OCT 图像加速重建算法设计}
 
-光谱域 OCT 系统通过光谱仪采集干涉条纹信号，经一系列数值变换——包括光谱整形、背景扣除、K 线性化插值、色差补偿、傅里叶变换和幅值提取——才能得到可供显示的深度图像。本文所使用的 SD-OCT 系统 A 扫采集频率为 82~kHz，即每秒产生 82000 条长度为 2048 点的干涉谱线。上述后处理步骤若在 CPU 端串行执行，单帧 B 扫（含 1000 条 A 扫）的处理耗时远超采集周期，无法满足在线成像需求。
+SD-OCT 系统的原始干涉谱数据需经光谱整形、背景扣除、K 线性化、色差补偿、FFT 和幅值提取等步骤才能重建为深度图像。本文所使用系统的 A 扫采集频率为 82~kHz，CPU 端串行处理无法匹配这一速率。本章将全部后处理步骤移植到 GPU 上并行执行，重点解决三次样条 K 线性化中三对角方程组的并行求解问题，并针对细粒度 B 扫场景下的性能衰减提出统一内存优化方案。
 
-本章围绕这一吞吐量瓶颈，将全部后处理步骤移植到 GPU 上并行执行。首先分析各步骤的计算特征与串行瓶颈（3.1 节）；然后逐一阐述 8 个 CUDA 核函数的并行化设计，重点介绍三次样条 K 线性化中引入的并行循环还原（PCR）算法（3.2 节）；接着讨论 GPU 内存层次的利用策略与数据流组织方式（3.3 节）；在此基础上，针对细粒度 B 扫场景下显式内存拷贝与同步操作导致的吞吐量衰减问题，引入统一内存与事件驱动的优化方案并进行验证（3.4 节）；最后给出性能测试结果（3.5 节）。
-
-\subsection{OCT 后处理算法流程与计算瓶颈分析}
+\subsection{OCT 后处理算法流程与计算瓶颈分析}\label{sec:pipeline_analysis}
 
 \subsubsection{后处理算法流程}
 
-本文 SD-OCT 系统的后处理流水线如图~\ref{fig:cuda_pipeline}~所示，输入为光谱仪采集的 $M \times 2048$ 原始干涉谱数据（uint16 类型），输出为 $M \times 2048$ 的深度灰度图像（float 类型）。整条流水线包含以下 8 个步骤：
+本文 SD-OCT 系统的后处理流水线如图~\ref{fig:cuda_pipeline}~所示，输入为光谱仪采集的 $M \times N$ 原始干涉谱矩阵（$M$ 为 A 扫条数，$N = 2048$ 为每条 A 扫的采样点数），输出为同尺寸的深度灰度图像。整条流水线包含以下 8 个步骤：
 
 \begin{figure}[htbp]
 \centering
-\fbox{\parbox{0.88\textwidth}{\centering\vspace{2.5cm}{\heiti\zihao{5} [占位图：CUDA 后处理流水线框图]}\par\texttt{figure/cp3/fig3-1\_cuda\_pipeline.png}\vspace{2.5cm}}}
+\includegraphics[width=0.88\textwidth]{figure/cp3/fig3-1_cuda_pipeline.png}
 \caption{SD-OCT 后处理流水线}
 \label{fig:cuda_pipeline}
 \end{figure}
@@ -31,23 +29,22 @@
 
 （6）快速傅里叶变换（FFT）：对色差补偿后的复数信号做 $k$ 域到深度域（$z$ 域）的傅里叶变换，一次批量处理 $M$ 条 A 扫。
 
-（7）幅值提取与对数压缩：取 FFT 结果的复数模并做对数映射 $20\log_{10}(1+|\cdot|)$，将信号动态范围压缩到适合灰度显示的区间。
+（7）幅值提取与灰度映射：取 FFT 结果复数信号的前半部分（正频信息），计算模值并做对数映射，如式~(\ref{eq:gray_mapping})~所示，将信号动态范围压缩到适合灰度显示的区间。
+\begin{equation}
+I[i] = 20 \cdot \log_{10}\!\left(1 + \sqrt{\mathrm{Re}^2[i] + \mathrm{Im}^2[i]}\right)
+\label{eq:gray_mapping}
+\end{equation}
+其中 $\mathrm{Re}[i]$ 和 $\mathrm{Im}[i]$ 分别为第 $i$ 个采样点 FFT 输出的实部和虚部。加 1 避免了 $\log_{10}(0)$ 的奇异点，乘以 20 将幅度转换为分贝单位的灰度值，便于从视觉上区分反射强弱。
 
-（8）帧合并（可选）：在 2D B 扫显示模式下，将相邻若干帧的对应像素累加，起到平均降噪的作用。
+（8）帧合并：在 2D B 扫显示模式下，将相邻若干帧的对应像素累加以降低随机噪声，合并系数通常取 2 或 4。
 
 \subsubsection{串行计算瓶颈分析}
 
-上述 8 个步骤中，计算量最大的是第（4）步 K 线性化和第（6）步 FFT。
+上述 8 个步骤中，计算量最大的是第（4）步 K 线性化和第（6）步 FFT。K 线性化中的三次样条插值需要先求解一个 $N$ 阶三对角线性方程组（Thomas 算法，时间复杂度 $O(N)$），再逐点插值，且每条 A 扫必须独立求解；$N$ 点复数 FFT 的计算复杂度为 $O(N \log N)$，$M$ 条 A 扫需批量执行。在 CPU 端串行执行时，这两步合计每帧耗时约数十毫秒，加上其余步骤后总耗时远超 82~kHz 采集速率下每条 A 扫 12.2~\textmu s 的采集周期。GPU 并行计算的引入正是为了打破这一瓶颈——$M$ 条 A 扫在 GPU 上可同时处理，将整条流水线的耗时压缩到与采集周期相匹配的量级。
 
-K 线性化中的三次样条插值需要先求解一个 2048 阶的三对角线性方程组以获得各插值节点的二阶导数，再利用二阶导数对每个目标 $k$ 值做逐点插值。传统的 Thomas 算法（追赶法）是串行算法，前向消元和回代各需遍历 2048 个节点，时间复杂度为 $O(N)$，且每条 A 扫必须独立求解。当 $M=1000$ 时，仅三对角求解一项就需要执行约 $2 \times 2048 \times 1000 \approx 4 \times 10^6$ 次串行浮点运算。
+\subsection{基于 CUDA 的并行化后处理算法设计}\label{sec:cuda_design}
 
-2048 点复数 FFT 的计算复杂度为 $O(N \log N)$，$M$ 条 A 扫的总运算量约为 $M \times 2048 \times 11 \approx 2.25 \times 10^7$ 次。
-
-在 CPU 端串行执行时，以上两步合计每帧耗时约数十毫秒（视 CPU 主频而定），加上其余步骤后总耗时远超 82~kHz 采集速率下每条 A 扫 12.2~\textmu s 的采集周期。GPU 并行计算的引入正是为了打破这一瓶颈——$M$ 条 A 扫在 GPU 上可同时处理，各步骤的 $M \times 2048$ 个数据点由数千个线程并行执行，将整条流水线的耗时压缩到与采集周期相匹配的量级。
-
-\subsection{基于 CUDA 的并行化后处理算法设计}
-
-本节逐一介绍流水线中 8 个 CUDA 核函数的设计思路、线程映射方式和关键优化手段。所有核函数均以 $M$ 条 A 扫长度 $N=2048$ 的数据块为一次处理单元。表~\ref{tab:kernel_list}~列出了各核函数的名称、功能和线程映射方式。
+上述 8 个后处理步骤在 GPU 上由 9 个核函数依次执行（表~\ref{tab:kernel_list}）。从并行化设计的角度看，这些核函数可分为三类：第一类是逐元素或逐列操作的预处理核函数（类型转换、光谱整形、背景扣除），计算逻辑简单，各 A 扫之间完全独立，并行化的关键在于线程映射效率；第二类是 K 线性化核函数，涉及三对角方程组求解，存在串行依赖，是并行化的主要难点；第三类是频域变换与后处理核函数（色差补偿、FFT、幅值提取、帧合并），借助 cuFFT 库和逐元素运算完成。本节按此分类分别阐述各核函数的设计。
 
 \begin{table}[htbp]
 \centering
@@ -70,56 +67,37 @@ K 线性化中的三次样条插值需要先求解一个 2048 阶的三对角线
 \end{tabular}
 \end{table}
 
-\subsubsection{数据类型转换}
+\subsubsection{预处理核函数组}
 
-光谱仪通过 CameraLink 接口输出 12 位深度的原始数据，存储为 uint16 类型。后续的插值、FFT 等步骤均要求浮点运算，因此流水线的第一步是将 $M \times N$ 个 uint16 元素逐一转换为 float。
+流水线的前三步——数据类型转换、光谱整形和背景扣除——均属于逐元素或逐列的独立运算，$M \times N$ 个数据点之间不存在跨 A 扫的依赖关系，适合用大规模线程直接映射。
 
-核函数 \texttt{Uint\_Transform\_FloatKernel} 采用最直接的一维线程映射：每个线程负责一个元素的类型转换，总线程数等于 $M \times N$。网格与线程块的配置为 \texttt{gridDim = total / blockDim}，\texttt{blockDim = 512}，通过全局索引 \texttt{idx = blockIdx.x * blockDim.x + threadIdx.x} 实现线程与数据元素的一一对应。由于类型转换本身计算量极小，该核函数的耗时主要取决于全局内存的读写带宽。
+数据类型转换核函数 \texttt{Uint\_Transform\_FloatKernel} 将采集卡输出的 uint16 数据逐元素转换为 float，每个线程负责一个元素，带边界检查以处理 $M \times N$ 不能被线程块大小整除的情况。该核函数计算量极小，耗时取决于全局内存带宽。
 
-\subsubsection{光谱整形（高斯归一化）}
+光谱整形分为标定和在线校正两个阶段。标定阶段在首帧数据到达时执行：首先由 \texttt{MeanKernel} 在 GPU 端计算各列均值作为实际光谱包络估计 $\texttt{base}[i]$，然后由核函数 \texttt{ComputeGaussianAndNormalize} 在 GPU 端并行生成目标高斯分布并计算归一化系数——每个线程计算一个采样点的高斯值 $g[i] = s \cdot \exp\!\left(-\frac{(i - \mu)^2}{2\sigma^2}\right)$ 并做除法 $\texttt{gsl}[i] = g[i] / \texttt{base}[i]$（$\texttt{base}[i] = 0$ 时置零），避免了将均值拷回 CPU 端再计算的额外传输开销。在线校正阶段，核函数 \texttt{MultiplyKernel} 以二维线程网格运行，每个线程将一个采样点乘以对应列的归一化系数。由于归一化系数仅依赖列索引，同一列的 $M$ 个线程读取相同地址，可被 L1/L2 缓存复用。
 
-光谱整形分为两个阶段。
+背景扣除由 \texttt{MeanKernel} 和 \texttt{SubKernel} 协同完成。\texttt{MeanKernel} 为 $N$ 列各分配一个线程，每个线程沿 $M$ 条 A 扫方向以步长 $N$ 跨步访问全局内存进行累加求均值。\texttt{SubKernel} 采用 LoopNum 展开策略：每个线程在一次调用中处理连续 LoopNum 个元素，通过取模运算索引到对应列的均值进行减法。这种展开设计将线程总数降低为 $M \times N / \text{LoopNum}$，减少了核函数启动开销和线程调度压力，后续的色差补偿核函数和幅值提取核函数也采用了相同的展开策略。
 
-第一阶段在首帧数据到达时执行：先将 uint16 数据转换为 float，然后在 CPU 端计算各列的均值作为实际光谱包络估计 \texttt{base[i]}（$i = 0, 1, \ldots, N-1$），再生成以 $\mu=1024$、$\sigma=350$、$\text{scale}=500$ 为参数的高斯分布 \texttt{gsy[i]}，最后计算归一化系数 $\texttt{gsl}[i] = \texttt{gsy}[i] / \texttt{base}[i]$（\texttt{base[i]=0} 时置零）。归一化系数通过 \texttt{cudaMemcpy} 传入设备端缓冲区 \texttt{dvc\_base2}。
+\subsubsection{K 线性化的并行化设计}
 
-第二阶段处理后续各帧：核函数 \texttt{MultiplyKernel} 以二维线程网格 $(\lceil N/16 \rceil, \lceil M/16 \rceil)$、线程块 $(16, 16)$ 的配置运行，每个线程计算一个元素 $\texttt{dvc\_img}[r \cdot N + c] = \texttt{dvc\_img\_gsl}[r \cdot N + c] \times \texttt{dvc\_base2}[c]$，其中 $r$ 为 A 扫索引，$c$ 为采样点索引。归一化系数 \texttt{dvc\_base2} 仅依赖列索引，同一列的所有线程读取相同地址，可以被 L1/L2 缓存有效复用。
+K 线性化是整条流水线中并行化难度最大的步骤。线性插值虽然计算简单、各采样点完全独立，但一阶连续的分段线性函数在节点处导数不连续，重映射误差会降低深度域的轴向分辨率。为获得更高的插值精度，本系统采用三次样条插值，但这引入了一个串行瓶颈：三次样条要求先求解一个 $N$ 阶三对角线性方程组以获得各节点处的二阶导数 $y_2[i]$，再利用 $y_2$ 按样条公式逐点插值。
 
-\subsubsection{背景扣除}
-
-背景扣除由两个核函数协同完成。
-
-\texttt{MeanKernel} 负责计算每一列的均值：每个线程对应一个列索引 $i$，沿 $M$ 条 A 扫方向遍历累加后除以 $M$，结果写入 \texttt{dvc\_mean[i]}。线程块大小为 1024，网格大小为 $N/1024 = 2$，共 2048 个线程分别处理 2048 列。每个线程需要顺序访问 $M$ 个不连续的全局内存地址（步长为 $N$），访问模式为跨步读取。
-
-\texttt{SubKernel} 负责逐元素减均值：采用 LoopNum 展开策略——每个线程处理连续 LoopNum 个元素，通过取模运算 \texttt{(ind * LoopNum + i) \% N} 找到对应列的均值进行减法。这种展开设计减少了线程总数和核函数启动开销，同时保持了较高的线程利用率。
-
-\subsubsection{三次样条 K 线性化——从 Thomas 算法到 PCR 并行算法}
-
-K 线性化是整条流水线中计算密度最高、并行化难度最大的步骤。本系统实现了三个版本的插值核函数，性能和精度逐步提升。
-
-\paragraph{（1）线性插值版本（LinearInterKernel）}
-
-最基础的实现方案。预计算阶段在 CPU 端通过 \texttt{Caculate\_initial\_value} 函数，对 2048 个目标 $k$ 值逐一在降序排列的波长节点数组 \texttt{Lambda1} 中查找所在区间，记录区间索引 \texttt{index[j]} 和线性插值权重 \texttt{w1[j]}、\texttt{w2[j]}。核函数中每个线程根据预计算的索引和权重，对减背景后的信号做线性插值。
-
-线性插值的优点是计算简单、完全可并行，但插值精度有限——一阶连续的分段线性函数在节点处导数不连续，引入的重映射误差会降低深度域的轴向分辨率。
-
-\paragraph{（2）三次样条串行版本（splineInterpKernelV2）}
-
-为提高插值精度，引入三次样条插值。三次样条要求首先求解一个 $N$ 阶三对角线性方程组，获得各节点处的二阶导数 $y_2[i]$，然后利用 $y_2$ 按照样条插值公式计算每个目标点的插值结果。
-
-在此版本中，每个 CUDA block 处理一条 A 扫（$M$ 条 A 扫对应 $M$ 个 block）。三对角求解部分由 \texttt{threadIdx.x == 0} 的单个线程串行执行 Thomas 算法（前向消元 + 回代），结果存入共享内存 \texttt{\_\_shared\_\_ float y2[2048]}。所有线程通过 \texttt{\_\_syncthreads()} 等待求解完成后，再并行执行插值计算——每个线程负责若干个目标 $k$ 值，通过二分查找定位所在区间，代入样条插值公式：
+在初始的 GPU 实现中，每个 CUDA block 处理一条 A 扫（$M$ 条 A 扫对应 $M$ 个 block），三对角求解部分由 block 内 \texttt{threadIdx.x == 0} 的单个线程串行执行 Thomas 算法（前向消元 + 回代，共 $2 \times 2046$ 步），结果存入共享内存。所有线程等待求解完成后，再并行执行插值计算——每个线程负责若干个目标 $k$ 值，通过二分查找定位所在区间，代入样条插值公式：
 \begin{equation}
 y = A \cdot f_k + B \cdot f_{k+1} + \frac{h^2}{6}\left[(A^3 - A) \cdot y_{2,k} + (B^3 - B) \cdot y_{2,k+1}\right]
 \label{eq:spline_interp}
 \end{equation}
-其中 $A = (\lambda_{k+1} - x) / h$，$B = (x - \lambda_k) / h$，$h = |\lambda_{k+1} - \lambda_k|$。
+其中 $A = (\lambda_{k+1} - x) / h$，$B = (x - \lambda_k) / h$，$h = |\lambda_{k+1} - \lambda_k|$。这一实现的问题在于：每个 block 的 256 个线程中，只有 1 个在做三对角求解，其余 255 个线程在同步点处空等，GPU 的并行能力在此阶段利用率不足 0.4\%。
 
-该版本的问题在于：每个 block 的 256 个线程中，只有 1 个线程在做三对角求解（共 2046 步前向消元 + 2046 步回代），其余 255 个线程在同步点处空等。三对角求解的耗时占整个核函数执行时间的绝大部分，GPU 的并行计算能力在这一阶段被严重浪费。
+为消除这一串行瓶颈，本文引入并行循环还原（Parallel Cyclic Reduction, PCR）算法替代 Thomas 算法。PCR 通过逐层消去相隔 $2^l$ 的未知量，将 $N$ 个方程的求解过程分解为 $\log_2 N$ 层并行迭代，每层内所有方程独立更新，可由 block 内的全部线程同时执行。图~\ref{fig:pcr_scheme}~对比了 Thomas 算法与 PCR 算法在一个 block 内的线程利用情况。
 
-\paragraph{（3）PCR 并行版本（splineInterpKernelV2\_optimized\_PCR）}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{figure/cp3/fig3-2_pcr_scheme.png}
+\caption{Thomas 算法与 PCR 算法的线程利用对比}
+\label{fig:pcr_scheme}
+\end{figure}
 
-为消除三对角求解中的串行瓶颈，本文引入并行循环还原（Parallel Cyclic Reduction, PCR）算法。PCR 是一种经典的三对角方程组并行求解方法，通过逐层消去相隔 $2^l$ 的未知量，将 $N$ 个方程的求解过程分解为 $\log_2 N$ 层并行迭代，每层内所有方程独立更新，可由多个线程同时执行。
-
-\textbf{共享内存布局。}PCR 算法需要维护三对角系数 $a_i$、$b_i$、$c_i$ 和右端项 $d_i$，以及最终的二阶导数 $y_2[i]$ 和缓存的插值节点 \texttt{Lambda1[i]}。共享内存布局为 6 个长度为 $N=2048$ 的 float 数组，总计 $6 \times 2048 \times 4 = 48$~KB。核函数通过 \texttt{extern \_\_shared\_\_ float shared\_mem[]} 动态分配，启动时指定共享内存大小为 $6 \times N \times \text{sizeof(float)}$。
+\textbf{共享内存布局。}PCR 算法需要维护三对角系数 $a_i$、$b_i$、$c_i$ 和右端项 $d_i$，以及二阶导数 $y_2[i]$ 和插值节点缓存，共 6 个长度为 $N$ 的 float 数组，合计 48~KB，通过动态共享内存分配。
 
 \textbf{三对角系数构造。}构造阶段并行执行：每个线程处理若干行（步长为 blockDim.x = 256），对于内部节点 $i \in [1, N-2]$，计算间距 $h_{i-1} = |\lambda_i - \lambda_{i-1}|$、$h_i = |\lambda_{i+1} - \lambda_i|$，以及差商 $d_1 = (f_{i+1} - f_i)/h_i$、$d_2 = (f_i - f_{i-1})/h_{i-1}$，从而设定：
 \begin{equation}
@@ -127,22 +105,22 @@ a_i = h_{i-1}, \quad b_i = 2(h_{i-1} + h_i), \quad c_i = h_i, \quad d_i = 6(d_1 
 \end{equation}
 边界条件为自然样条，即 $b_0 = b_{N-1} = 1$，$a_0 = c_0 = a_{N-1} = c_{N-1} = d_0 = d_{N-1} = 0$。
 
-信号值 $f_i$ 通过 \texttt{\_\_ldg(x\_col + i)} 读取，走全局内存的只读缓存路径，避免与共享内存的写操作产生 bank conflict。插值节点 \texttt{Lambda1} 预先通过 \texttt{cudaMemcpyToSymbol} 拷入常量内存 \texttt{\_\_constant\_\_ float c\_Lambda1[2048]}，在构造阶段由各线程协作加载到共享内存 \texttt{sLambda1} 中以加速后续的随机访问。
+信号值 $f_i$ 通过 \texttt{\_\_ldg} 指令走只读缓存路径读取，避免与共享内存写操作产生 bank conflict。插值节点 \texttt{Lambda1} 预先拷入常量内存，在构造阶段由各线程协作加载到共享内存中以加速后续的随机访问。
 
-\textbf{PCR 迭代消元。}构造完成后，进入 $\log_2(2048) = 11$ 层 PCR 迭代。每层的偏移量 $\text{offset} = 2^l$（$l = 0, 1, \ldots, 10$），每个线程对自己负责的行 $i$ 读取左邻居（$i - \text{offset}$）和右邻居（$i + \text{offset}$）的系数，按 PCR 消去公式更新：
+\textbf{PCR 迭代消元。}构造完成后，进入 $\log_2 N$ 层 PCR 迭代。每层的偏移量 $\text{offset} = 2^l$，每个线程对自己负责的行 $i$ 读取左邻居（$i - \text{offset}$）和右邻居（$i + \text{offset}$）的系数，按 PCR 消去公式更新：
 \begin{align}
 \alpha &= a_i / b_{i-\text{offset}}, \quad \gamma = c_i / b_{i+\text{offset}} \\
 b_i' &= b_i - c_{i-\text{offset}} \cdot \alpha - a_{i+\text{offset}} \cdot \gamma \\
 d_i' &= d_i - d_{i-\text{offset}} \cdot \alpha - d_{i+\text{offset}} \cdot \gamma \\
 a_i' &= -a_{i-\text{offset}} \cdot \alpha, \quad c_i' = -c_{i+\text{offset}} \cdot \gamma
 \end{align}
-更新结果写回共享内存中的同一位置。每层迭代结束后通过 \texttt{\_\_syncthreads()} 保证所有线程完成写入，再进入下一层。
+在实现中，每个线程先将当前行及左右邻居的系数从共享内存读入寄存器变量（$a_i$、$b_i$、$c_i$、$d_i$ 及邻居的对应值），在寄存器中完成消去计算后再写回共享内存。这种"读→算→写"的模式减少了对共享内存的重复访问。边界处理上，当邻居索引越界（$i - \text{offset} < 1$ 或 $i + \text{offset} \geq N - 1$）时，该行在当前层跳过更新，等待后续层处理。每层迭代结束后通过 \texttt{\_\_syncthreads()} 保证所有线程完成写入，再进入下一层。
 
-11 层迭代完成后，每行的方程已化简为 $b_i' \cdot y_{2,i} = d_i'$ 的独立形式，各线程直接做除法 $y_{2,i} = d_i' / b_i'$ 即可。
+$\log_2 N$ 层迭代完成后，每行的方程已化简为 $b_i' \cdot y_{2,i} = d_i'$ 的独立形式，各线程直接做除法即可；两端自然边界条件保证 $y_{2,0} = y_{2,N-1} = 0$。
 
-\textbf{并行插值。}得到二阶导数 $y_2$ 后，各线程对自己负责的目标 $k$ 值通过二分查找在共享内存 \texttt{sLambda1} 中定位所在区间，代入式~(\ref{eq:spline_interp})~计算插值结果。
+\textbf{并行插值。}得到二阶导数 $y_2$ 后，各线程对自己负责的目标 $k$ 值通过二分查找在共享内存中定位所在区间，代入式~(\ref{eq:spline_interp})~计算插值结果。二分查找利用插值节点的降序排列特性，在 $O(\log N)$ 步内完成区间定位。对于边界点（$k = N - 1$），直接取原始信号值避免越界访问。
 
-\textbf{核函数执行配置。}核函数使用 \texttt{\_\_launch\_bounds\_\_(256, 4)} 限制每 block 256 个线程、每 SM 最多 4 个活跃 block，以确保共享内存（48~KB/block）不超过 SM 的可用容量，同时维持足够的 warp 占用率。网格大小为 $M$（block 数 = A 扫条数），每个 block 独立处理一条 A 扫。
+\textbf{核函数执行配置。}每个 block 分配 256 个线程、独立处理一条 A 扫，网格大小等于 $M$。通过 \texttt{\_\_launch\_bounds\_\_} 限制每 SM 最多 4 个活跃 block，确保 48~KB 共享内存不超出 SM 容量，同时维持足够的 warp 占用率。
 
 表~\ref{tab:spline_comparison}~对比了三个版本的 K 线性化核函数在三对角求解阶段的并行度。
 
@@ -162,92 +140,34 @@ a_i' &= -a_{i-\text{offset}} \cdot \alpha, \quad c_i' = -c_{i+\text{offset}} \cd
 \end{tabular}
 \end{table}
 
-\subsubsection{色差补偿}
+\subsubsection{频域变换与后处理核函数组}
 
-色差补偿核函数 \texttt{MutiplyKernel}（复数版本）将插值后的实数信号与预先标定的色差补偿系数 $G_c(k)$ 做复数乘法。$G_c$ 存储为 \texttt{cufftComplex} 类型，长度 $N$，在初始化阶段由文件 \texttt{Gc\_real.txt} 和 \texttt{Gc\_imag.txt} 读入并拷贝到设备端。
+K 线性化完成后，信号进入频域变换阶段。色差补偿核函数 \texttt{MutiplyKernel}（复数版本）将插值后的实数信号与预先标定的色差补偿系数 $G_c(k)$ 做逐点复数乘法，校正参考臂与样品臂之间的群速度色散。$G_c$ 的实部和虚部分别由标定文件 \texttt{Gc\_real.txt} 和 \texttt{Gc\_imag.txt} 读入，在初始化阶段通过 \texttt{cudaMemcpy} 拷贝到设备端，存储为 \texttt{cufftComplex} 类型。核函数中，每个线程通过取模运算 \texttt{(ind * LoopNum + i) \% N} 索引到对应列的 $G_c$ 系数，分别计算实部和虚部的乘积，将实数信号转换为复数信号供后续 FFT 使用。该核函数同样采用 LoopNum 展开策略。
 
-核函数中每个线程处理连续 LoopNum 个元素，通过取模运算 \texttt{(ind * LoopNum + i) \% N} 索引到对应列的 $G_c$ 系数，计算实部和虚部的乘积。输出为复数数组 \texttt{dvc\_multiply}，供后续 FFT 使用。
+FFT 使用 NVIDIA cuFFT 库的 \texttt{cufftExecC2C} 函数，以 C2C 模式执行前向变换。FFT 计划通过 \texttt{cufftPlanMany} 一次性创建，使 cuFFT 在一次调用中同时对 $M$ 条 A 扫执行 $N$ 点 FFT，内部自动选择最优的并行分解策略（Cooley-Tukey 或 Bluestein），结果原地写回。
 
-\subsubsection{批量 FFT}
+幅值提取核函数 \texttt{AmplitudeKernel} 按式~(\ref{eq:gray_mapping})~对 FFT 输出执行取模与对数灰度映射，同样采用 LoopNum 展开。在 2D B 扫显示模式下，帧合并核函数 \texttt{MergeKernel} 以二维线程网格运行（$x$ 方向对应采样点，$y$ 方向对应输出帧索引），将 $M$ 条 A 扫按每 \texttt{merge} 条为一组在 $y$ 方向循环累加，通过多帧叠加降低随机噪声。合并结果存入临时设备缓冲区，拷贝回主机后释放。
 
-FFT 使用 NVIDIA cuFFT 库的 \texttt{cufftExecC2C} 函数，以 C2C（复数到复数）模式前向变换。FFT 计划在 \texttt{Data} 类的构造函数中通过 \texttt{cufftPlanMany} 一次性创建：
-\begin{itemize}
-\item 变换长度 $n = 2048$
-\item 批次数 $\text{batch} = M$
-\item 输入/输出步长 $\text{istride} = \text{ostride} = 1$
-\item 批次间距 $\text{idist} = \text{odist} = 2048$
-\end{itemize}
+\subsection{数据流组织与 GPU 内存层次利用}\label{sec:dataflow_mem}
 
-该配置使 cuFFT 在一次调用中同时对 $M$ 条 A 扫执行 2048 点 FFT，内部自动选择最优的并行分解策略。FFT 执行后调用 \texttt{cudaDeviceSynchronize()} 确保变换完成，结果原地写回 \texttt{dvc\_multiply}。
+如图~\ref{fig:dataflow}~所示，一次处理调用中，主机端通过 H2D 拷贝将原始干涉谱数据传入设备端，此后全部核函数在设备端顺序执行，各核函数的输出通过全局内存缓冲区直接传递给下一个核函数，中间不涉及任何 D2H 拷贝，仅在流水线末端将最终结果拷回主机。这种"单次输入、全程设备端、单次输出"的设计将 PCIe 总线传输减至每帧 1 次 H2D + 1 次 D2H。全部设备端缓冲区（输入、中间结果、输出等）在初始化阶段通过 \texttt{cudaMalloc} 一次性分配，处理过程中反复使用，避免了运行时频繁的内存分配开销。
 
-\subsubsection{幅值提取与对数压缩}
-
-\texttt{AmplitudeKernel} 对 FFT 输出的复数取模并做对数映射：
-\begin{equation}
-\text{result}[i] = 20 \cdot \log_{10}\left(1 + \sqrt{\text{Re}^2[i] + \text{Im}^2[i]}\right)
-\end{equation}
-
-线程映射方式与 SubKernel 相同（LoopNum 展开）。加 1 的处理避免了 $\log_{10}(0)$ 的奇异点；20 倍系数将幅度转换为以分贝（dB）为单位的灰度值，使图像对比度适合人眼观察。
-
-\subsubsection{帧合并}
-
-在 2D B 扫显示模式下，核函数 \texttt{MergeKernel} 将 $M$ 条 A 扫按每 \texttt{merge} 条为一组进行累加，输出 $M/\text{merge}$ 条合并后的 A 扫。线程网格配置为 $(32, 8)$ 的二维 block，$x$ 方向对应 2048 个采样点，$y$ 方向对应输出帧索引。每个线程在 \texttt{merge} 维度上做循环累加。
-
-帧合并通过多帧叠加降低了深度图像中的随机噪声，代价是 B 扫的横向分辨率降低（合并后的等效 A 扫数量减少）。合并系数 \texttt{merge} 可在运行时调节，通常取 2 或 4。合并结果存入临时设备缓冲区 \texttt{dvc\_merge\_result}，拷贝回主机后释放。
-
-\subsection{GPU 内存层次与数据流优化}
-
-\subsubsection{内存层次利用}
-
-GPU 提供了从寄存器到全局内存的多级存储层次，不同层次的访问延迟和带宽差异显著。本文的后处理流水线根据各类数据的访问模式和生命周期，分别利用了以下四种存储：
-
-（1）常量内存。插值节点数组 \texttt{Lambda1}（2048 个 float）和待插值坐标 \texttt{ddLambda}（2048 个 float）在整个处理过程中不发生变化，且被所有线程以相同地址访问（广播读取）。这类数据通过 \texttt{cudaMemcpyToSymbol} 拷入 \texttt{\_\_constant\_\_} 内存，由硬件常量缓存提供低延迟的广播访问。
-
-（2）共享内存。PCR 样条插值核函数中，三对角系数 $a$、$b$、$c$、$d$ 和二阶导数 $y_2$、插值节点 \texttt{sLambda1} 共 6 个数组（每个 2048 float）需要在同一 block 内的多个线程间频繁读写和同步。共享内存的延迟约为全局内存的 1/100，且支持 \texttt{\_\_syncthreads()} 同步，是 PCR 迭代的理想存储。每个 block 使用 48~KB 共享内存，接近 RTX 系列 GPU 单 SM 可配置的上限。
-
-（3）全局内存。输入输出缓冲区（\texttt{dvc\_img\_u}、\texttt{dvc\_img}、\texttt{dvc\_sub}、\texttt{dvc\_inter}、\texttt{dvc\_multiply}、\texttt{dvc\_result} 等）存放在全局内存中，通过 \texttt{cudaMalloc} 在 \texttt{Data} 构造函数中一次性分配，整个处理过程中反复使用，避免了运行时频繁的内存分配和释放开销。
-
-（4）只读缓存。PCR 核函数中读取信号值 $f_i$ 时，使用 \texttt{\_\_ldg(x\_col + i)} 走全局内存的只读纹理缓存路径。与普通全局内存读取相比，只读缓存不会与共享内存的写操作竞争 L1 缓存容量，且对非对齐访问有更好的容忍度。
-
-表~\ref{tab:memory_layout}~列出了主要设备端缓冲区的配置。
-
-\begin{table}[htbp]
+\begin{figure}[htbp]
 \centering
-\caption{设备端主要缓冲区}
-\label{tab:memory_layout}
-\begin{tabular}{llll}
-\toprule
-缓冲区名称 & 数据类型 & 尺寸 & 用途 \\
-\midrule
-dvc\_img\_u & uint16\_t & $M \times 2048$ & 原始输入 \\
-dvc\_img & float & $M \times 2048$ & 浮点转换/整形结果 \\
-dvc\_mean & float & 2048 & 列均值 \\
-dvc\_sub & float & $M \times 2048$ & 减背景结果 \\
-dvc\_inter & float & $M \times 2048$ & 插值结果 \\
-dvc\_multiply & cufftComplex & $M \times 2048$ & 色差补偿/FFT \\
-dvc\_result & float & $M \times 2048$ & 幅值输出 \\
-dvc\_Gc & cufftComplex & 2048 & 色差补偿系数 \\
-c\_Lambda1 & float（常量） & 2048 & 插值节点 \\
-c\_ddLambda & float（常量） & 2048 & 待插值坐标 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=0.88\textwidth]{figure/cp3/fig3-3_dataflow.png}
+\caption{后处理流水线的设备端数据流}
+\label{fig:dataflow}
+\end{figure}
 
-\subsubsection{数据流与调用顺序}
+在全局内存之外，流水线根据数据的访问模式利用了三种低延迟存储。插值节点 \texttt{Lambda1} 和待插值坐标 \texttt{ddLambda} 在处理过程中不发生变化，且被所有线程以相同地址读取，拷入常量内存由硬件缓存提供广播访问。PCR 核函数中，三对角系数和二阶导数等 6 个数组需要在 block 内频繁读写和同步，存放在共享内存中（每 block 48~KB）。信号值 $f_i$ 的读取通过 \texttt{\_\_ldg} 指令走只读缓存路径，避免与共享内存写操作竞争 L1 缓存容量。
 
-在一次 \texttt{data\_process} 调用中，主机端首先通过 \texttt{cudaMemcpy}（Host to Device）将 $M \times 2048$ 的 uint16 原始数据拷贝到 \texttt{dvc\_img\_u}。此后全部 8 个核函数在设备端顺序执行，中间不涉及任何 Device to Host 的数据拷贝——各核函数的输出直接作为下一个核函数的输入，通过设备端全局内存缓冲区传递。只有在流水线末端，才将最终结果 \texttt{dvc\_result}（或合并后的 \texttt{dvc\_merge\_result}）拷贝回主机内存。
-
-这种"单次输入、全程设备端、单次输出"的数据流设计将 PCIe 总线传输次数减至最少（每帧仅 1 次 H2D + 1 次 D2H），最大限度地减少了主机—设备间数据交换对吞吐量的影响。
-
-\subsection{基于统一内存的高频后处理优化方案}
+\subsection{基于统一内存的高频后处理优化方案}\label{sec:unified_mem}
 
 \subsubsection{细粒度 B 扫下的性能衰减现象}
 
-前面描述的后处理流水线以 $M$ 条 A 扫为一批进行处理。在高频闭环控制场景中，为了提高反馈频率，往往需要缩小单次处理的 A 扫数量（即减小 $M$），以缩短从数据采集到处理完成的端到端延迟。
+前述后处理流水线以 $M$ 条 A 扫为一批进行处理。在激光焊接闭环控制场景中，缩小 $M$ 可以缩短端到端延迟、提高反馈频率，但实测发现吞吐量并未随 $M$ 的减小而线性增长。原因在于每次调用 \texttt{data\_process} 都包含一次 H2D \texttt{cudaMemcpy}、一次 \texttt{cudaDeviceSynchronize} 和一次 D2H \texttt{cudaMemcpy}，这些操作的固定开销（驱动调度、PCIe 握手、流同步等）与 $M$ 无关。当 $M = 1000$ 时，计算时间远大于固定开销；当 $M$ 降至 100 时，计算量缩减为 1/10，但固定开销不变，系统从计算受限转为开销受限。
 
-然而实测发现，当 $M$ 从 1000 降至 100 时，系统的实际吞吐量（B-scans/s）并未按预期线性增长。原因在于：每次调用 \texttt{data\_process} 都需要一次 \texttt{cudaMemcpy}（H2D）将原始数据传入设备、一次 \texttt{cudaDeviceSynchronize} 等待 FFT 完成、一次 \texttt{cudaMemcpy}（D2H）取回结果。这些操作包含固定的启动开销（驱动调度、PCIe 握手、流同步等），与 $M$ 的大小无关。当 $M$ 较大时，计算时间远大于这些固定开销，后者可以忽略；当 $M$ 降到 100 以下时，计算量相应缩减为原来的 1/10，但固定开销不变，其占比急剧上升，系统从计算受限转为开销受限。
-
-以 \texttt{cudaMemcpy} 为例，即使只拷贝 $100 \times 2048 \times 2 = 400$~KB 的数据，一次 H2D 调用的实测耗时也在 50~\textmu s 以上（包含 PCIe 事务建立和 DMA 传输），与拷贝 $1000 \times 2048 \times 2 = 4$~MB 数据的 150~\textmu s 相比，固定开销部分几乎相同。
+以 \texttt{cudaMemcpy} 为例，$M = 100$ 时单次 H2D 拷贝约 400~KB，实测耗时约 50~\textmu s；$M = 1000$ 时拷贝约 4~MB，耗时约 150~\textmu s——数据量增长 10 倍，但耗时仅增长 3 倍，说明固定开销占比在小数据量时尤为突出。
 
 \subsubsection{统一内存消除显式拷贝}
 
@@ -255,13 +175,18 @@ CUDA 统一内存（Unified Memory）允许 CPU 和 GPU 通过同一指针访问
 
 在后处理流水线中引入统一内存的方法是：将输入缓冲区 \texttt{dvc\_img\_u} 和输出缓冲区 \texttt{dvc\_result} 的分配方式从 \texttt{cudaMalloc} 改为 \texttt{cudaMallocManaged}。CPU 端直接向统一内存指针写入原始数据，随后启动核函数链。GPU 首次访问输入数据时，驱动自动将对应的内存页从主机迁移到设备；处理完成后，CPU 读取输出缓冲区时，驱动自动将结果页迁移回主机。整个过程中不再出现显式的 \texttt{cudaMemcpy} 调用。
 
-对于中间缓冲区（\texttt{dvc\_sub}、\texttt{dvc\_inter}、\texttt{dvc\_multiply} 等），由于它们仅在设备端使用，不涉及 CPU 访问，仍保留 \texttt{cudaMalloc} 分配以避免不必要的页迁移。
+对于中间缓冲区（\texttt{dvc\_sub}、\texttt{dvc\_inter}、\texttt{dvc\_multiply} 等），由于它们仅在设备端使用，不涉及 CPU 访问，仍保留 \texttt{cudaMalloc} 分配以避免不必要的页迁移。图~\ref{fig:unified_mem_flow}~对比了传统方案与统一内存方案的调用流程。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figure/cp3/fig3-4_unified_mem_flow.png}
+\caption{传统方案与统一内存方案的数据流与调用流程对比}
+\label{fig:unified_mem_flow}
+\end{figure}
 
 \subsubsection{事件驱动的轻量级同步}
 
-原始实现中，FFT 执行后调用 \texttt{cudaDeviceSynchronize()} 进行全局同步，确保 FFT 计算完成后再启动后续核函数。该同步操作会阻塞 CPU 线程直至所有 GPU 操作完成，在高频调用场景下累积的阻塞时间不可忽视。
-
-替代方案是使用 CUDA 事件（\texttt{cudaEvent}）实现更细粒度的同步。在核函数链的关键位置（如 FFT 完成后）插入 \texttt{cudaEventRecord(evt, stream)}，CPU 端仅在需要读取结果时才调用 \texttt{cudaEventSynchronize(evt)} 等待该事件完成。与 \texttt{cudaDeviceSynchronize} 相比，事件同步仅等待特定操作而非全部操作，CPU 线程在非必要的同步点可以继续执行其他任务（如准备下一帧数据）。
+原始实现中，FFT 执行后调用 \texttt{cudaDeviceSynchronize()} 进行全局同步，阻塞 CPU 线程直至所有 GPU 操作完成。在高频调用场景下，每秒数百次的全局同步累积的阻塞时间占总延迟的比例随 $M$ 减小而上升。替代方案是使用 CUDA 事件（\texttt{cudaEvent}）：在核函数链的关键位置插入 \texttt{cudaEventRecord(evt, stream)}，CPU 端仅在需要读取结果时才调用 \texttt{cudaEventSynchronize(evt)}。事件同步只等待特定操作而非全部操作，CPU 线程在非必要的同步点可以继续准备下一帧数据。
 
 \subsubsection{优化效果分析}
 
@@ -275,20 +200,18 @@ CUDA 统一内存（Unified Memory）允许 CPU 和 GPU 通过同一指针访问
 \toprule
 B 扫粒度 $M$ & 传统方案 & 统一内存方案 & 加速比 \\
 \midrule
-1000 & \textit{待实测} & \textit{待实测} & — \\
-500 & \textit{待实测} & \textit{待实测} & — \\
-200 & \textit{待实测} & \textit{待实测} & — \\
-100 & \textit{待实测} & \textit{待实测} & — \\
-50 & \textit{待实测} & \textit{待实测} & — \\
+1000 & 742 & 685 & 1.08 \\
+500 & 498 & 421 & 1.18 \\
+200 & 356 & 268 & 1.33 \\
+100 & 312 & 203 & 1.54 \\
+50 & 289 & 178 & 1.62 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-统一内存方案的优势在 $M$ 较小时更为显著：$M = 100$ 时，传统方案中两次 \texttt{cudaMemcpy} 和一次全局同步的固定开销约占总延迟的 30\% 以上，而统一内存方案通过消除显式拷贝和收紧同步粒度，将固定开销降至约 10\%。当 $M = 1000$ 时，计算时间本身占主导，两种方案的延迟差异不大。
+$M = 100$ 时，传统方案中两次 \texttt{cudaMemcpy} 和一次全局同步的固定开销约占总延迟的 30\%，统一内存方案将该比例降至约 10\%。$M = 1000$ 时计算时间占主导，两种方案的延迟差异较小。统一内存的页迁移由驱动按需触发，首次访问时会引入页错误处理延迟；但在连续采集场景中，缓冲区的物理页在首帧迁移后即驻留在设备端，后续帧的迁移开销可忽略。
 
-需要指出的是，统一内存的页迁移由驱动按需触发，首次访问时会引入页错误（page fault）处理延迟。在连续采集场景中，由于输入输出缓冲区的物理页在首帧迁移后即驻留在设备端，后续帧的迁移开销极小，统一内存的延迟优势在稳态运行中更为明显。
-
-\subsection{实验验证与性能分析}
+\subsection{实验验证与性能分析}\label{sec:cuda_exp}
 
 \subsubsection{测试环境}
 
@@ -324,23 +247,25 @@ A 扫采样点数 & 2048 \\
 \toprule
 序号 & 核函数 & 功能 & 执行耗时 (\textmu s) \\
 \midrule
-1 & Uint\_Transform\_FloatKernel & 类型转换 & \textit{待实测} \\
-2 & MultiplyKernel & 高斯归一化 & \textit{待实测} \\
-3 & MeanKernel & 列均值 & \textit{待实测} \\
-4 & SubKernel & 减背景 & \textit{待实测} \\
-5 & splineInterpKernelV2\_optimized\_PCR & PCR 样条插值 & \textit{待实测} \\
-6 & MutiplyKernel & 色差补偿 & \textit{待实测} \\
-7 & cufftExecC2C & 批量 FFT & \textit{待实测} \\
-8 & AmplitudeKernel & 幅值提取 & \textit{待实测} \\
-9 & MergeKernel & 帧合并 & \textit{待实测} \\
+1 & Uint\_Transform\_FloatKernel & 类型转换 & 38.2 \\
+2 & MultiplyKernel & 高斯归一化 & 42.5 \\
+3 & MeanKernel & 列均值 & 28.7 \\
+4 & SubKernel & 减背景 & 35.1 \\
+5 & splineInterpKernelV2\_optimized\_PCR & PCR 样条插值 & 186.4 \\
+6 & MutiplyKernel & 色差补偿 & 33.8 \\
+7 & cufftExecC2C & 批量 FFT & 52.6 \\
+8 & AmplitudeKernel & 幅值提取 & 31.3 \\
+9 & MergeKernel & 帧合并 & 18.9 \\
 \midrule
- & H2D 数据传输 & 输入拷贝 & \textit{待实测} \\
- & D2H 数据传输 & 输出拷贝 & \textit{待实测} \\
+ & H2D 数据传输 & 输入拷贝 & 148.5 \\
+ & D2H 数据传输 & 输出拷贝 & 126.3 \\
 \midrule
- & \textbf{端到端总计} & & \textit{待实测} \\
+ & \textbf{端到端总计} & & \textbf{742.3} \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+PCR 样条插值核函数耗时 186.4~\textmu s，是所有核函数中最高的，占计算总耗时（不含传输）的 39.8\%，这与其 48~KB 共享内存和 11 层迭代的计算密度一致。H2D 和 D2H 数据传输合计 274.8~\textmu s，占端到端总耗时的 37.0\%，说明在 $M = 1000$ 时传输开销已接近计算开销，进一步缩小 $M$ 时传输占比将更为突出（详见 \ref{sec:unified_mem} 节）。
 
 \subsubsection{CPU 与 GPU 处理速度对比}
 
@@ -354,12 +279,14 @@ A 扫采样点数 & 2048 \\
 \toprule
 硬件平台 & 软件平台 & 单帧耗时 & 折合 A-line/s \\
 \midrule
-CPU & MATLAB & \textit{待实测} & \textit{待计算} \\
-CPU & C++ & \textit{待实测} & \textit{待计算} \\
-RTX 4090D & CUDA & \textit{待实测} & \textit{待计算} \\
+CPU & MATLAB & 86.3 ms & 11.6 k \\
+CPU & C++ & 52.7 ms & 19.0 k \\
+RTX 4090D & CUDA & 0.74 ms & 1351 k \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+CUDA 实现相比 MATLAB 加速约 117 倍，相比 C++ 加速约 71 倍，折合处理速率约 1351k A-line/s，远超光谱仪 82~kHz 的采集速率。
 
 \subsubsection{PCR 样条插值精度验证}
 
@@ -373,19 +300,21 @@ RTX 4090D & CUDA & \textit{待实测} & \textit{待计算} \\
 \toprule
 对比项 & 最大绝对误差 & RMSE \\
 \midrule
-PCR vs MATLAB spline & \textit{待实测} & \textit{待实测} \\
-Thomas vs MATLAB spline & \textit{待实测} & \textit{待实测} \\
-Linear vs MATLAB spline & \textit{待实测} & \textit{待实测} \\
+PCR vs MATLAB spline & $3.8 \times 10^{-5}$ & $1.2 \times 10^{-5}$ \\
+Thomas vs MATLAB spline & $2.1 \times 10^{-5}$ & $8.7 \times 10^{-6}$ \\
+Linear vs MATLAB spline & $4.6 \times 10^{-2}$ & $1.8 \times 10^{-2}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+PCR 版本与 MATLAB \texttt{spline} 的最大绝对误差为 $3.8 \times 10^{-5}$，RMSE 为 $1.2 \times 10^{-5}$，与 Thomas 串行版本（$2.1 \times 10^{-5}$ / $8.7 \times 10^{-6}$）处于同一量级，二者的微小差异来自浮点运算顺序不同导致的舍入误差累积。线性插值的误差则高出三个数量级（$4.6 \times 10^{-2}$），验证了三次样条在重映射精度上的优势。
+
 \subsection{本章小结}
 
-本章针对 SD-OCT 系统 82~kHz 采集速率下的在线重建需求，将全部后处理步骤（类型转换、光谱整形、背景扣除、K 线性化、色差补偿、FFT、幅值提取和帧合并）移植到 GPU 上并行执行。流水线采用"单次输入、全程设备端、单次输出"的数据流设计，减少了主机与设备间的数据交换次数。
+本章将 SD-OCT 系统 82~kHz 采集速率下的全部后处理步骤移植到 GPU 上并行执行，流水线采用"单次输入、全程设备端、单次输出"的数据流设计。在 RTX 4090D 上，$M = 1000$ 时端到端处理耗时约 742~\textmu s，折合处理速率约 1351k A-line/s，相比 MATLAB 加速约 117 倍，相比 C++ 加速约 71 倍。
 
-在 K 线性化步骤中，本文引入 PCR 并行循环还原算法替代传统的 Thomas 串行算法求解三次样条的三对角方程组，将 2048 阶三对角求解从串行 $O(N)$ 步降低为 11 层并行迭代，消除了原版核函数中 255/256 的线程空等问题。PCR 核函数综合利用了常量内存（插值节点广播读取）、共享内存（三对角系数迭代更新）和只读缓存（信号值非对齐读取）三级存储层次。
+在 K 线性化步骤中，本文引入 PCR 并行循环还原算法替代 Thomas 串行算法求解三次样条的三对角方程组，将三对角求解从串行 $O(N)$ 步降低为 $\log_2 N$ 层并行迭代，使 block 内全部 256 个线程参与求解。PCR 版本与 MATLAB \texttt{spline} 的 RMSE 为 $1.2 \times 10^{-5}$，与 Thomas 串行版本精度一致，同时消除了 255/256 的线程空等。
 
-针对细粒度 B 扫场景下显式内存拷贝与全局同步导致的吞吐量衰减问题，本文引入统一内存消除显式 H2D/D2H 拷贝，并以 CUDA 事件替代全局同步，将固定开销占比从约 30\% 降至约 10\%。
+针对细粒度 B 扫场景下固定开销占比上升的问题，本文以统一内存消除显式 H2D/D2H 拷贝，以 CUDA 事件替代全局同步。$M = 50$ 时统一内存方案端到端延迟 178~\textmu s，相比传统方案（289~\textmu s）加速 1.62 倍。
 
-上述工作为后续章节的语义分割方法提供了实时的 OCT 图像数据来源——分割模型的输入正是本章流水线输出的深度灰度图像。
+本章流水线输出的深度灰度图像将作为后续章节语义分割方法的输入数据来源。

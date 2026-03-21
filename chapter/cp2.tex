@@ -6,7 +6,7 @@
 
 \subsection{OCT成像原理}
 
-光学相干层析成像（Optical Coherence Tomography, OCT）是一种基于低相干干涉原理的高分辨率、非侵入性层析成像技术\upcite{Huang1991OCT}。该技术最早由 Huang 等人于 1991 年提出\upcite{Huang1991OCT}，通过检测参考光束与样品后向散射光之间的干涉信息，实现对生物组织或材料结构的微米级断层成像。OCT 技术无需外源造影剂或样品切片处理，即可实现高分辨率实时成像，在生物医学和工业检测领域具有重要应用价值\upcite{ZengHaitao_OCT_Speckle}。
+光学相干层析成像（Optical Coherence Tomography, OCT）是一种基于低相干干涉原理的高分辨率、非侵入性层析成像技术\upcite{Huang1991OCT}。该技术最早由 Huang 等人于 1991 年提出\upcite{Huang1991OCT}，通过检测参考光束与样品后向散射光之间的干涉信息，实现对生物组织或材料结构的微米级断层成像。OCT 技术无需外源造影剂或样品切片处理，即可实现高分辨率实时成像，在生物医学和工业检测领域均有应用\upcite{ZengHaitao_OCT_Speckle}。
 
 \subsubsection{OCT成像基本原理}
 
@@ -39,7 +39,7 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 时域 OCT 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。在时域 OCT 信号处理中，时间序列分析方法可用于分析扫描过程中的信号变化规律\upcite{cryer2011}。
 
-频域 OCT 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，显著提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
+频域 OCT 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
 
 \subsubsection{OCT在激光焊接中的应用}
 
@@ -47,7 +47,7 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 \subsubsection{OCT图像特点与分割算法设计的关联}
 
-尽管 OCT 具备高分辨率、非侵入性等优势，但在实际应用中仍面临信号不稳定与噪声干扰等挑战。深入理解 OCT 图像的特点及其成因，对于设计针对性的分割算法具有重要指导意义。
+尽管 OCT 具备高分辨率、非侵入性等优势，但在实际应用中仍面临信号不稳定与噪声干扰等挑战。理解 OCT 图像的噪声特性是设计分割算法的前提。
 
 （1）散斑噪声的物理成因与统计特性。
 
@@ -113,7 +113,7 @@ CUDA 将线程组织为两级层次结构：线程块（Block）和网格（Grid
 
 线程块和网格均支持一维、二维或三维的索引方式。每个线程通过内置变量 \texttt{threadIdx}（块内索引）、\texttt{blockIdx}（块索引）和 \texttt{blockDim}（块尺寸）计算自己的全局索引，从而确定负责处理的数据元素。例如，对于一维线程映射，全局索引 $\text{idx} = \text{blockIdx.x} \times \text{blockDim.x} + \text{threadIdx.x}$。
 
-在 GPU 硬件层面，线程以 32 个为一组构成线程束（Warp），同一 Warp 中的线程执行相同的指令。流式多处理器（SM）负责调度和执行 Warp，当一个 Warp 因访存等待而阻塞时，SM 可切换到另一个就绪的 Warp 继续执行，从而掩盖访存延迟。SM 的 Warp 占用率（Occupancy）是衡量 GPU 利用效率的重要指标。
+在 GPU 硬件层面，线程以 32 个为一组构成线程束（Warp），同一 Warp 中的线程执行相同的指令。流式多处理器（Streaming Multiprocessor, SM）负责调度和执行 Warp，当一个 Warp 因访存等待而阻塞时，SM 可切换到另一个就绪的 Warp 继续执行，从而掩盖访存延迟。SM 的 Warp 占用率（Occupancy）是衡量 GPU 利用效率的重要指标。
 
 \subsubsection{存储层次}
 
@@ -170,7 +170,7 @@ Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot
 
 （3）激活函数：激活函数为网络引入非线性，使网络能够学习复杂的非线性映射关系。常用的激活函数包括：\ding{172}~ReLU（Rectified Linear Unit），$f(x) = \max(0, x)$，具有计算简单、梯度稳定等优点，是目前最常用的激活函数；\ding{173}~Sigmoid，$f(x) = \frac{1}{1+e^{-x}}$，输出范围在 $(0,1)$ 之间，常用于二分类任务的输出层；\ding{174}~Softmax，$f(x_i) = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$，将输入向量归一化为概率分布，常用于多分类任务的输出层。
 
-（4）批归一化：批归一化（Batch Normalization）通过在训练过程中对每个批次的数据进行归一化，能够加速网络训练、提高模型稳定性并允许使用更大的学习率\upcite{ioffe2015batchnormalizationacceleratingdeep}。批归一化的操作可表示为：
+（4）批归一化：批归一化（Batch Normalization, BN）通过在训练过程中对每个批次的数据进行归一化，能够加速网络训练、提高模型稳定性并允许使用更大的学习率\upcite{ioffe2015batchnormalizationacceleratingdeep}。批归一化的操作可表示为：
 \begin{equation}
 \hat{x}_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}}, \quad y_i = \gamma \hat{x}_i + \beta
 \label{eq:batch_norm}
@@ -182,7 +182,7 @@ Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot
 \mathbf{y} = \mathcal{F}(\mathbf{x}, \{\mathbf{W}_i\}) + \mathbf{x}
 \label{eq:residual}
 \end{equation}
-其中，$\mathcal{F}(\mathbf{x}, \{\mathbf{W}_i\})$ 为残差映射，$\mathbf{x}$ 为恒等映射。残差连接使得网络能够学习残差而非完整的映射，从而简化了优化过程。ResNet 通过引入残差连接，成功训练了包含数百层的深层网络，在图像分类、目标检测等任务中取得了显著成果\upcite{He2015ResNet}。
+其中，$\mathcal{F}(\mathbf{x}, \{\mathbf{W}_i\})$ 为残差映射，$\mathbf{x}$ 为恒等映射。残差连接使得网络能够学习残差而非完整的映射，从而简化了优化过程。ResNet 通过引入残差连接，成功训练了包含数百层的深层网络，在图像分类、目标检测等任务中验证了其有效性\upcite{He2015ResNet}。
 
 （6）ResNet骨干网络：ResNet（Residual Network）系列网络是深度学习领域最具影响力的骨干网络之一，广泛应用于图像分类、目标检测和语义分割等任务。ResNet 系列包括 ResNet-18、ResNet-34、ResNet-50、ResNet-101 和 ResNet-152 等不同深度的变体，其中 ResNet-50 和 ResNet-101 在精度与效率之间取得了良好平衡，是语义分割任务中常用的编码器骨干网络\upcite{He2015ResNet}。
 
@@ -253,7 +253,7 @@ U-Net 架构的成功激发了众多变体网络的研究，其中 UNet++ 和 Re
 
 \subsubsection{DeepLab系列方法}
 
-DeepLab 系列方法是语义分割领域的重要里程碑，通过引入空洞卷积和空间金字塔池化等技术，显著提升了分割性能。DeepLab 系列的发展历程体现了语义分割技术的演进轨迹。
+DeepLab 系列方法通过引入空洞卷积和空间金字塔池化等技术，在语义分割任务上取得了持续改进。
 
 （1）DeepLabV1：DeepLabV1 首次将空洞卷积（Atrous Convolution）引入语义分割任务\upcite{Chen2014DeepLabV1}。空洞卷积通过在卷积核中插入零值，在不增加参数量的情况下扩大感受野，使得网络能够在保持特征图分辨率的同时捕获更大范围的上下文信息。空洞卷积的数学表达可写为：
 \begin{equation}
@@ -316,7 +316,7 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 \subsubsection{OCT图像采集}
 
-本研究的实验数据来源于激光焊接 OCT 在线检测系统。该系统基于谱域 OCT 技术，能够实时获取焊接过程中的熔深信息。在焊接实验中，选用多种工业金属材料进行焊接实验，通过调整焊接功率和焊接速度等工艺参数，采集了多组不同工况下的焊接 OCT 图像数据。
+本研究的实验数据来源于激光焊接 OCT 检测系统。该系统基于谱域 OCT 技术，通过第三章所述的 GPU 加速重建流水线将干涉谱数据转换为深度灰度图像。在焊接实验中，选用多种工业金属材料，通过调整焊接功率和焊接速度等工艺参数，采集了多组不同工况下的焊接 OCT 图像数据。
 
 原始 OCT 图像的尺寸不固定，受采集系统参数和扫描范围的影响存在差异。为满足深度学习模型的输入要求，后续预处理过程将统一调整图像尺寸。本研究共采集了约 228 张原始 OCT 图像，涵盖多种焊接工况下的熔深变化情况。
 
@@ -332,7 +332,7 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 （4）尺寸调整：将预处理后的图像统一调整为 $512 \times 512$ 像素，采用双线性插值方法进行缩放，以满足深度学习模型的输入尺寸要求。
 
-预处理前后的图像效果对比如图~\ref{fig:preprocess_comparison}~所示，可以看出预处理后图像的噪声明显减少，熔深区域的对比度显著提升。
+预处理前后的图像效果对比如图~\ref{fig:preprocess_comparison}~所示，可以看出预处理后图像的噪声明显减少，熔深区域的对比度提升。
 
 此外，在模型训练阶段，还需进行归一化处理：将图像像素值从 $[0, 255]$ 归一化到 $[0, 1]$ 范围，以加速模型收敛并提高训练稳定性。该操作在数据加载时在线进行，不改变保存的图像文件。
 
@@ -446,7 +446,7 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 为科学评估模型性能，本研究将数据集按照 8:2 的比例划分为训练集和测试集。划分时遵循以下原则：（1）时序连续性，来自同一焊接序列的图像不跨集划分，避免信息泄露；（2）分布一致性，确保两个子集中不同工况下的样本比例基本一致；（3）随机性，在满足上述约束的前提下，采用随机采样方式进行划分。验证集从训练集中动态划分，用于训练过程中的模型选择。
 
-与公开语义分割数据集如 Cityscapes\upcite{cordts2015cityscapes}相比，本数据集规模较小，但在焊接 OCT 图像这一特定领域具有重要价值。数据集的详细统计信息如表~\ref{tab:dataset_statistics}~所示。
+与公开语义分割数据集如 Cityscapes\upcite{cordts2015cityscapes}相比，本数据集规模较小，但针对焊接 OCT 图像的特定任务仍可满足训练需求。数据集的详细统计信息如表~\ref{tab:dataset_statistics}~所示。
 
 \begin{table}[htbp]
 \centering
@@ -548,6 +548,6 @@ Dice 系数对分割区域的完整性更加敏感，在医学图像分割等需
 
 在深度学习与语义分割方面，介绍了卷积神经网络的基本组件、编码器-解码器架构、注意力机制，以及从 FCN 到 DeepLabV3+ 的语义分割方法发展脉络。DeepLabV3+ 作为本文第四章的基线模型，在处理 OCT 图像时仍存在全局上下文建模不足和边界细节丢失的问题，这为 TR 模块和 SAE 模块的设计提供了动机。
 
-此外，本章介绍了焊接 OCT 图像数据集的构建过程（采集、预处理、标注、增强、划分）和语义分割的评价指标体系（mIoU、mAcc、mDice、HD95 等），为后续实验评估提供了数据基础和度量标准。
+此外，本章介绍了焊接 OCT 图像数据集的构建过程（采集、预处理、标注、增强、划分）和语义分割的评价指标体系（mIoU、平均准确率 mAcc、平均 Dice 系数 mDice、Hausdorff 距离 95\% 分位数 HD95 等），为后续实验评估提供了数据基础和度量标准。
 
 基于本章的理论准备，第三章将设计基于 CUDA 的 OCT 后处理加速方案，第四章将提出基于双重注意力机制的改进分割模型。

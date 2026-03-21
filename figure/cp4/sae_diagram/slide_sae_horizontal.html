@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #ffffff; font-family: Arial, sans-serif;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 14pt; box-sizing: border-box;
+}
+
+.main-container {
+  display: flex; flex-direction: row; align-items: flex-start; justify-content: center;
+  gap: 20pt; margin-top: 8pt;
+}
+
+.flow-container {
+  display: flex; flex-direction: row; align-items: center; gap: 4pt;
+}
+
+.io-box {
+  background: #FFF8E1; border: 2pt solid #E6A23C; border-radius: 6pt;
+  padding: 10pt 12pt; text-align: center; min-width: 70pt;
+}
+
+.stage-group {
+  display: flex; flex-direction: column; align-items: center; gap: 3pt;
+}
+
+.stage-label-tag {
+  background: #F5F5F5; border: 1pt solid #BDBDBD; border-radius: 10pt;
+  padding: 2pt 8pt; margin-bottom: 2pt;
+}
+
+.ca-box {
+  background: #E8F5E9; border: 2pt solid #66BB6A; border-radius: 6pt;
+  padding: 8pt 10pt; text-align: center; min-width: 130pt;
+}
+
+.conv-box {
+  background: #E3F2FD; border: 2pt solid #42A5F5; border-radius: 6pt;
+  padding: 8pt 10pt; text-align: center; min-width: 100pt;
+}
+
+.se-box {
+  background: #F3E5F5; border: 2pt solid #AB47BC; border-radius: 6pt;
+  padding: 8pt 10pt; text-align: center; min-width: 130pt;
+}
+
+.arrow-h { margin: 0 2pt; }
+
+.add-circle {
+  width: 20pt; height: 20pt; background: #FFEB3B; border: 1.5pt solid #F57F17;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+
+.detail-container {
+  display: flex; flex-direction: column; gap: 8pt; padding: 8pt 10pt;
+  background: #FAFAFA; border: 1pt solid #DDD; border-radius: 8pt;
+  max-width: 200pt;
+}
+
+.detail-item { display: flex; flex-direction: column; gap: 2pt; }
+
+.inner-flow {
+  display: flex; flex-direction: row; align-items: center; gap: 3pt;
+  margin-top: 3pt; flex-wrap: wrap; justify-content: center;
+}
+
+.inner-box {
+  border-radius: 3pt; padding: 2pt 5pt; text-align: center;
+}
+
+.inner-green { background: #F1F8E9; border: 0.5pt solid #AED581; }
+.inner-blue { background: #E8EAF6; border: 0.5pt solid #9FA8DA; }
+.inner-pink { background: #FCE4EC; border: 0.5pt solid #F48FB1; }
+
+.res-label { margin-top: 1pt; }
+</style>
+</head>
+<body>
+
+<div class="main-container">
+  <div class="flow-container">
+
+    <div class="io-box">
+      <p style="margin:0; font-size:9pt; font-weight:bold; color:#7A4A00;">解码器融合特征</p>
+      <p style="margin:1pt 0 0 0; font-size:7pt; color:#7A4A00;">C=560</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#888;">→</p>
+
+    <div class="stage-group">
+      <div class="stage-label-tag"><p style="margin:0; font-size:7pt; color:#616161; font-weight:bold;">第一级</p></div>
+      <div class="ca-box">
+        <p style="margin:0; font-size:9pt; font-weight:bold; color:#2E7D32;">坐标注意力</p>
+        <p style="margin:1pt 0 0 0; font-size:7pt; color:#2E7D32;">Coordinate Attention</p>
+        <div class="inner-flow">
+          <div class="inner-box inner-green"><p style="margin:0; font-size:6pt; color:#33691E;">水平池化 H×1</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">+</p>
+          <div class="inner-box inner-green"><p style="margin:0; font-size:6pt; color:#33691E;">垂直池化 1×W</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-green"><p style="margin:0; font-size:6pt; color:#33691E;">1×1 Conv</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-green"><p style="margin:0; font-size:6pt; color:#33691E;">BN+h-swish</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-green"><p style="margin:0; font-size:6pt; color:#33691E;">Split+Sigmoid</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-green"><p style="margin:0; font-size:6pt; color:#33691E;">空间重标定</p></div>
+        </div>
+      </div>
+      <div class="add-circle"><p style="margin:0; font-size:10pt; font-weight:bold; color:#333;">+</p></div>
+      <p class="res-label" style="margin:0; font-size:6pt; color:#999; font-style:italic;">残差</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#888;">→</p>
+
+    <div class="stage-group">
+      <div class="stage-label-tag"><p style="margin:0; font-size:7pt; color:#616161; font-weight:bold;">第二级</p></div>
+      <div class="conv-box">
+        <p style="margin:0; font-size:9pt; font-weight:bold; color:#1565C0;">特征精炼</p>
+        <div class="inner-flow">
+          <div class="inner-box inner-blue"><p style="margin:0; font-size:6pt; color:#283593;">3×3 Conv BN+ReLU</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-blue"><p style="margin:0; font-size:6pt; color:#283593;">3×3 Conv BN+ReLU</p></div>
+        </div>
+      </div>
+      <div class="add-circle"><p style="margin:0; font-size:10pt; font-weight:bold; color:#333;">+</p></div>
+      <p class="res-label" style="margin:0; font-size:6pt; color:#999; font-style:italic;">残差</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#888;">→</p>
+
+    <div class="stage-group">
+      <div class="stage-label-tag"><p style="margin:0; font-size:7pt; color:#616161; font-weight:bold;">第三级</p></div>
+      <div class="se-box">
+        <p style="margin:0; font-size:9pt; font-weight:bold; color:#6A1B9A;">多基数通道注意力</p>
+        <p style="margin:1pt 0 0 0; font-size:7pt; color:#6A1B9A;">Multi-Cardinality SE</p>
+        <div class="inner-flow">
+          <div class="inner-box inner-pink"><p style="margin:0; font-size:6pt; color:#880E4F;">GAP</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-pink"><p style="margin:0; font-size:6pt; color:#880E4F;">FC₁</p></div>
+          <p style="margin:0; font-size:5pt; color:#bbb;">‖</p>
+          <div class="inner-box inner-pink"><p style="margin:0; font-size:6pt; color:#880E4F;">FC₂</p></div>
+          <p style="margin:0; font-size:5pt; color:#bbb;">‖</p>
+          <div class="inner-box inner-pink"><p style="margin:0; font-size:6pt; color:#880E4F;">FC₃</p></div>
+          <p style="margin:0; font-size:5pt; color:#bbb;">‖</p>
+          <div class="inner-box inner-pink"><p style="margin:0; font-size:6pt; color:#880E4F;">FC₄</p></div>
+          <p style="margin:0; font-size:6pt; color:#bbb;">→</p>
+          <div class="inner-box inner-pink"><p style="margin:0; font-size:6pt; color:#880E4F;">Concat FC+Sigmoid</p></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#888;">→</p>
+
+    <div class="io-box">
+      <p style="margin:0; font-size:9pt; font-weight:bold; color:#7A4A00;">空间增强后特征</p>
+      <p style="margin:1pt 0 0 0; font-size:7pt; color:#7A4A00;">C=560</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="detail-container" style="margin-top: 12pt;">
+  <div style="display: flex; flex-direction: row; gap: 16pt;">
+    <div class="detail-item">
+      <p style="margin:0; font-size:8pt; font-weight:bold; color:#2E7D32;">① 坐标注意力</p>
+      <p style="margin:0; font-size:7pt; color:#555; line-height:1.3;">水平/垂直方向池化 → 拼接 → 共享1×1卷积降维(r=4) → BN+h-swish → 切分 → 独立Sigmoid → 方向性空间重标定</p>
+    </div>
+    <div class="detail-item">
+      <p style="margin:0; font-size:8pt; font-weight:bold; color:#1565C0;">② 特征精炼</p>
+      <p style="margin:0; font-size:7pt; color:#555; line-height:1.3;">两层3×3卷积(BN+ReLU) 融合邻域上下文 弥补一维池化丢失的局部细节</p>
+    </div>
+    <div class="detail-item">
+      <p style="margin:0; font-size:8pt; font-weight:bold; color:#6A1B9A;">③ 多基数通道注意力</p>
+      <p style="margin:0; font-size:7pt; color:#555; line-height:1.3;">GAP → 4个并行FC分支(κ=4) 各降维至C/r → ReLU → 拼接 → FC+Sigmoid → 通道重标定</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

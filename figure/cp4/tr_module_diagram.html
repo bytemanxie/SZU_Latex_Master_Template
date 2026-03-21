@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #ffffff; font-family: Arial, sans-serif;
+  display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box;
+}
+
+.outer-bg {
+  background: #F5ECD7;
+  border-radius: 14pt;
+  display: flex; flex-direction: row; align-items: center;
+  padding: 24pt 16pt;
+  box-sizing: border-box;
+}
+
+.block {
+  background: #D6E4F0;
+  border: 1pt solid #B0C4DE;
+  border-radius: 4pt;
+  text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+}
+
+.add-circle {
+  width: 22pt; height: 22pt;
+  background: #ffffff;
+  border: 1.5pt solid #333333;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.seg {
+  height: 2pt;
+  background: #333333;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="outer-bg">
+
+  <p style="margin:0 4pt 0 0; font-size:7pt; color:#666; font-style:italic;">Input</p>
+
+  <div class="seg" style="width:12pt;"></div>
+
+  <!-- DWConv 3x3 -->
+  <div class="block" style="padding:8pt 12pt;">
+    <p style="margin:0; font-size:10pt; color:#333;">DWConv 3x3</p>
+  </div>
+
+  <div class="seg" style="width:8pt;"></div>
+
+  <!-- Add 1 -->
+  <div class="add-circle">
+    <p style="margin:0; font-size:12pt; font-weight:bold; color:#333;">+</p>
+  </div>
+
+  <div class="seg" style="width:12pt;"></div>
+
+  <!-- LN 1 -->
+  <div class="block" style="padding:6pt 10pt;">
+    <p style="margin:0; font-size:10pt; color:#333;">LN</p>
+  </div>
+
+  <div class="seg" style="width:8pt;"></div>
+
+  <!-- BRA -->
+  <div class="block" style="padding:8pt 10pt;">
+    <p style="margin:0; font-size:9pt; color:#333;">Bi-level Routing</p>
+    <p style="margin:1pt 0 0 0; font-size:9pt; color:#333;">Attention</p>
+  </div>
+
+  <div class="seg" style="width:8pt;"></div>
+
+  <!-- Add 2 -->
+  <div class="add-circle">
+    <p style="margin:0; font-size:12pt; font-weight:bold; color:#333;">+</p>
+  </div>
+
+  <div class="seg" style="width:12pt;"></div>
+
+  <!-- LN 2 -->
+  <div class="block" style="padding:6pt 10pt;">
+    <p style="margin:0; font-size:10pt; color:#333;">LN</p>
+  </div>
+
+  <div class="seg" style="width:8pt;"></div>
+
+  <!-- MLP -->
+  <div class="block" style="padding:8pt 12pt;">
+    <p style="margin:0; font-size:10pt; color:#333;">MLP</p>
+  </div>
+
+  <div class="seg" style="width:8pt;"></div>
+
+  <!-- Add 3 -->
+  <div class="add-circle">
+    <p style="margin:0; font-size:12pt; font-weight:bold; color:#333;">+</p>
+  </div>
+
+  <div class="seg" style="width:12pt;"></div>
+
+  <p style="margin:0 0 0 4pt; font-size:7pt; color:#666; font-style:italic;">Output</p>
+
+</div>
+
+</body>
+</html>

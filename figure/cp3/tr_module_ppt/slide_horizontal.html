@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #ffffff; font-family: Arial, sans-serif;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 16pt; box-sizing: border-box;
+}
+
+.main-container {
+  display: flex; flex-direction: row; align-items: flex-start; justify-content: center;
+  gap: 30pt; margin-top: 10pt;
+}
+
+.flow-container {
+  display: flex; flex-direction: row; align-items: center; gap: 5pt;
+}
+
+.io-box {
+  background: #E8F4F8; border: 2pt solid #4A90A4; border-radius: 6pt;
+  padding: 10pt 14pt; text-align: center;
+}
+
+.module-group {
+  display: flex; flex-direction: column; align-items: center; gap: 3pt;
+}
+
+.pos-box {
+  background: #FCE4EC; border: 2pt solid #C2185B; border-radius: 6pt;
+  padding: 8pt 14pt; text-align: center; min-width: 90pt;
+}
+
+.norm-box {
+  background: #E8F5E9; border: 1.5pt solid #388E3C; border-radius: 4pt;
+  padding: 4pt 10pt; text-align: center;
+}
+
+.attn-box {
+  background: #E3F2FD; border: 2pt solid #1976D2; border-radius: 6pt;
+  padding: 8pt 14pt; text-align: center; min-width: 110pt;
+}
+
+.mlp-box {
+  background: #F3E5F5; border: 2pt solid #7B1FA2; border-radius: 6pt;
+  padding: 8pt 14pt; text-align: center; min-width: 100pt;
+}
+
+.add-circle {
+  width: 20pt; height: 20pt; background: #FFEB3B; border: 1.5pt solid #F57F17;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+
+.arrow-h { margin: 0 1pt; }
+
+.sub-row {
+  display: flex; flex-direction: row; align-items: center; gap: 3pt;
+}
+
+.detail-container {
+  display: flex; flex-direction: column; gap: 8pt; padding: 8pt 10pt;
+  background: #FAFAFA; border: 1pt solid #DDD; border-radius: 8pt;
+  max-width: 200pt;
+}
+
+.detail-item { display: flex; flex-direction: column; gap: 2pt; }
+</style>
+</head>
+<body>
+
+<div class="main-container">
+  <div class="flow-container">
+
+    <div class="io-box">
+      <p style="margin:0; font-size:10pt; font-weight:bold; color:#1565C0;">输入特征</p>
+      <p style="margin:1pt 0 0 0; font-size:7pt; color:#555;">(N, C, H, W)</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#333;">→</p>
+
+    <div class="module-group">
+      <div class="pos-box">
+        <p style="margin:0; font-size:9pt; font-weight:bold; color:#880E4F;">位置编码 (CPE)</p>
+        <p style="margin:1pt 0 0 0; font-size:7pt; color:#666;">DWConv 3×3</p>
+      </div>
+      <div class="add-circle"><p style="margin:0; font-size:10pt; font-weight:bold; color:#333;">+</p></div>
+      <p style="margin:0; font-size:6pt; color:#999; font-style:italic;">残差</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#333;">→</p>
+
+    <div class="module-group">
+      <div class="sub-row">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:3pt;">
+          <div class="norm-box">
+            <p style="margin:0; font-size:8pt; font-weight:bold; color:#2E7D32;">LayerNorm</p>
+          </div>
+          <p style="margin:0; font-size:8pt; color:#888;">↓</p>
+          <div class="attn-box">
+            <p style="margin:0; font-size:9pt; font-weight:bold; color:#0D47A1;">双层路由注意力</p>
+            <p style="margin:1pt 0 0 0; font-size:7pt; color:#555;">Bi-Level Routing Attention</p>
+          </div>
+        </div>
+      </div>
+      <div class="add-circle"><p style="margin:0; font-size:10pt; font-weight:bold; color:#333;">+</p></div>
+      <p style="margin:0; font-size:6pt; color:#999; font-style:italic;">残差</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#333;">→</p>
+
+    <div class="module-group">
+      <div class="sub-row">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:3pt;">
+          <div class="norm-box">
+            <p style="margin:0; font-size:8pt; font-weight:bold; color:#2E7D32;">LayerNorm</p>
+          </div>
+          <p style="margin:0; font-size:8pt; color:#888;">↓</p>
+          <div class="mlp-box">
+            <p style="margin:0; font-size:9pt; font-weight:bold; color:#4A148C;">前馈网络 (FFN)</p>
+            <p style="margin:1pt 0 0 0; font-size:7pt; color:#666;">Linear → DWConv → GELU → Linear</p>
+          </div>
+        </div>
+      </div>
+      <div class="add-circle"><p style="margin:0; font-size:10pt; font-weight:bold; color:#333;">+</p></div>
+      <p style="margin:0; font-size:6pt; color:#999; font-style:italic;">残差</p>
+    </div>
+
+    <p class="arrow-h" style="margin:0; font-size:14pt; color:#333;">→</p>
+
+    <div class="io-box">
+      <p style="margin:0; font-size:10pt; font-weight:bold; color:#1565C0;">输出特征</p>
+      <p style="margin:1pt 0 0 0; font-size:7pt; color:#555;">(N, C, H, W)</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="detail-container" style="margin-top: 14pt;">
+  <div style="display: flex; flex-direction: row; gap: 16pt;">
+    <div class="detail-item">
+      <p style="margin:0; font-size:8pt; font-weight:bold; color:#C2185B;">① 位置编码 (CPE)</p>
+      <p style="margin:0; font-size:7pt; color:#555; line-height:1.3;">深度可分离卷积 (groups=dim) kernel_size=3, padding=1 隐式注入空间位置信息</p>
+    </div>
+    <div class="detail-item">
+      <p style="margin:0; font-size:8pt; font-weight:bold; color:#1976D2;">② 双层路由注意力 (BRA)</p>
+      <p style="margin:0; font-size:7pt; color:#555; line-height:1.3;">区域划分: n_win=4 (4×4窗口) TopK路由: k=4 多头注意力: num_heads=8 复杂度: O(n²×k/p²)</p>
+    </div>
+    <div class="detail-item">
+      <p style="margin:0; font-size:8pt; font-weight:bold; color:#7B1FA2;">③ 前馈网络 (FFN)</p>
+      <p style="margin:0; font-size:7pt; color:#555; line-height:1.3;">Linear(dim→4×dim) → DWConv 3×3 → GELU → Linear(4×dim→dim) DropPath正则化</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #ffffff; font-family: Arial, sans-serif;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.main { display: flex; flex-direction: column; align-items: center; gap: 4pt; margin: 12pt 16pt; }
+.row { display: flex; align-items: center; gap: 0; }
+.box { border-radius: 4pt; padding: 5pt 10pt; text-align: center; min-width: 90pt; }
+.box p { margin: 0; font-size: 8pt; line-height: 1.3; }
+.box-io { background: #FFF8E1; border: 1.5pt solid #E6A23C; }
+.box-io p { color: #7A4A00; }
+.box-ca { background: #E8F5E9; border: 1.5pt solid #66BB6A; min-width: 340pt; }
+.box-ca p { color: #2E7D32; }
+.box-conv { background: #E3F2FD; border: 1.5pt solid #42A5F5; min-width: 340pt; }
+.box-conv p { color: #1565C0; }
+.box-se { background: #F3E5F5; border: 1.5pt solid #AB47BC; min-width: 340pt; }
+.box-se p { color: #6A1B9A; }
+.stage-label { background: #F5F5F5; border: 1pt solid #BDBDBD; border-radius: 10pt; padding: 2pt 8pt; margin-right: 6pt; }
+.stage-label p { margin: 0; font-size: 7pt; color: #616161; font-weight: bold; }
+.arr p { margin: 0; font-size: 10pt; color: #888888; }
+.plus { background: #ffffff; border: 1pt solid #cccccc; border-radius: 50%; width: 16pt; height: 16pt; display: flex; align-items: center; justify-content: center; }
+.plus p { margin: 0; font-size: 10pt; color: #666666; }
+.side-label p { margin: 0; font-size: 7pt; color: #999999; font-style: italic; }
+.detail-row { display: flex; gap: 4pt; align-items: center; margin-top: 2pt; }
+.detail-box { background: #F1F8E9; border: 0.5pt solid #AED581; border-radius: 2pt; padding: 2pt 5pt; }
+.detail-box p { margin: 0; font-size: 6.5pt; color: #33691E; }
+.detail-box2 { background: #E8EAF6; border: 0.5pt solid #9FA8DA; border-radius: 2pt; padding: 2pt 5pt; }
+.detail-box2 p { margin: 0; font-size: 6.5pt; color: #283593; }
+.detail-box3 { background: #FCE4EC; border: 0.5pt solid #F48FB1; border-radius: 2pt; padding: 2pt 5pt; }
+.detail-box3 p { margin: 0; font-size: 6.5pt; color: #880E4F; }
+.darr p { margin: 0; font-size: 7pt; color: #bbbbbb; }
+</style>
+</head>
+<body>
+<div class="main">
+
+  <!-- Input -->
+  <div class="row">
+    <div class="box box-io"><p>解码器融合特征 (C=560)</p><p>ASPP 512ch + 浅层 48ch</p></div>
+  </div>
+  <div class="arr"><p>&#9660;</p></div>
+
+  <!-- Stage 1: Coordinate Attention -->
+  <div class="row">
+    <div class="stage-label"><p>第一级</p></div>
+    <div class="box box-ca">
+      <p><b>坐标注意力 (Coordinate Attention)</b></p>
+      <div class="detail-row">
+        <div class="detail-box"><p>水平池化</p><p>H x 1</p></div>
+        <div class="darr"><p>+</p></div>
+        <div class="detail-box"><p>垂直池化</p><p>1 x W</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box"><p>拼接</p><p>1x1 Conv</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box"><p>BN</p><p>h-swish</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box"><p>切分</p><p>Sigmoid</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box"><p>空间</p><p>重标定</p></div>
+      </div>
+    </div>
+    <div style="width:6pt"></div>
+    <div class="plus"><p>+</p></div>
+    <div style="width:4pt"></div>
+    <div class="side-label"><p>残差</p></div>
+  </div>
+  <div class="arr"><p>&#9660;</p></div>
+
+  <!-- Stage 2: Feature Refinement -->
+  <div class="row">
+    <div class="stage-label"><p>第二级</p></div>
+    <div class="box box-conv">
+      <p><b>特征精炼</b></p>
+      <div class="detail-row">
+        <div class="detail-box2"><p>3x3 Conv</p><p>BN + ReLU</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box2"><p>3x3 Conv</p><p>BN + ReLU</p></div>
+      </div>
+    </div>
+    <div style="width:6pt"></div>
+    <div class="plus"><p>+</p></div>
+    <div style="width:4pt"></div>
+    <div class="side-label"><p>残差</p></div>
+  </div>
+  <div class="arr"><p>&#9660;</p></div>
+
+  <!-- Stage 3: Multi-Cardinality SE -->
+  <div class="row">
+    <div class="stage-label"><p>第三级</p></div>
+    <div class="box box-se">
+      <p><b>多基数通道注意力 (Multi-Cardinality SE)</b></p>
+      <div class="detail-row">
+        <div class="detail-box3"><p>GAP</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box3"><p>FC&#8321; (C/r)</p></div>
+        <div class="darr"><p>&#8214;</p></div>
+        <div class="detail-box3"><p>FC&#8322; (C/r)</p></div>
+        <div class="darr"><p>&#8214;</p></div>
+        <div class="detail-box3"><p>FC&#8323; (C/r)</p></div>
+        <div class="darr"><p>&#8214;</p></div>
+        <div class="detail-box3"><p>FC&#8324; (C/r)</p></div>
+        <div class="darr"><p>&#8594;</p></div>
+        <div class="detail-box3"><p>拼接</p><p>FC + Sigmoid</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="arr"><p>&#9660;</p></div>
+
+  <!-- Output -->
+  <div class="row">
+    <div class="box box-io"><p>空间增强后特征 (C=560)</p></div>
+  </div>
+
+</div>
+</body>
+</html>

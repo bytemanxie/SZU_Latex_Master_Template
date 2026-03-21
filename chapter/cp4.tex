@@ -2,13 +2,7 @@
 
 \section{基于双重注意力机制的 OCT 图像语义分割方法}
 
-第三章实现了 OCT 干涉谱到深度图像的 GPU 加速重建，为在线监测提供了实时的图像数据来源。在此基础上，本章聚焦于从深度图像中自动提取熔深区域的语义分割问题。
-
-激光焊接过程中，熔深是评估焊接质量的关键指标。传统的熔深测量依赖破坏性金相检测或人工目视检查，效率低下且无法在线进行。OCT 图像为非接触式熔深检测提供了途径，但其散斑噪声强、对比度低、边界模糊的特点，使得熔深区域的自动化提取面临挑战。
-
-本章以 DeepLabV3+ 为基线模型，针对 OCT 图像的两个核心问题——全局上下文建模不足和边界定位不精确——提出了两个功能互补的注意力模块：TR（Transformer Routing）全局注意力模块和 SAE（Spatial Awareness Enhancement）空间感知增强模块。TR 模块嵌入编码器端 ASPP 输出之后，通过双层路由注意力建立长距离依赖关系，解决细长结构的断裂分割问题；SAE 模块集成于解码器端，通过坐标注意力显式建模空间位置关系，提升边界分割精度。两个模块形成"编码重结构、解码重细节"的互补架构。
-
-本章结构如下：4.1 节介绍 DeepLabV3+ 基线模型；4.2 节设计 TR 全局注意力模块；4.3 节设计 SAE 空间感知增强模块；4.4 节给出改进模型的整体结构与各模块的协同机制；4.5 节通过消融实验、对比实验、可视化分析和效率分析验证所提方法的有效性；4.6 节总结本章内容。
+OCT 图像存在散斑噪声强、对比度低、边界模糊等特点，给熔深区域的自动化提取带来困难。本章以 DeepLabV3+ 为基线模型，针对 ASPP 模块全局上下文建模不足和解码器边界定位不精确两个问题，分别在编码器端和解码器端引入 TR（Transformer Routing）全局注意力模块和 SAE（Spatial Awareness Enhancement）空间感知增强模块，通过消融实验和对比实验验证所提方法的有效性。
 
 \subsection{DeepLabV3+基线模型}
 
@@ -47,22 +41,7 @@ ASPP（Atrous Spatial Pyramid Pooling）模块通过多个不同空洞率的并�
 
 \subsubsection{编码器-解码器结构}
 
-编码器采用 ResNet18-V1c 作为骨干网络\upcite{He2015ResNet,wu2016widerdeeper}，使用 Deep Stem 结构（三个 3×3 卷积替代 7×7 卷积）。选择 ResNet18 而非更深的 ResNet50/101，基于三点考虑：训练集仅 912 张图像，过深网络易过拟合；OCT 图像纹理结构相对简单（二分类任务）；工业在线监测要求推理速度快。表~\ref{tab:backbone_comparison}~的消融实验验证了这一选择。
-
-\begin{table}[htbp]
-\centering
-\caption{骨干网络消融实验}
-\label{tab:backbone_comparison}
-\begin{tabular}{ccccc}
-\toprule
-骨干网络 & mIoU & 目标IoU & 参数量 & 备注 \\
-\midrule
-\textbf{ResNet18-V1c} & \textbf{0.884} & \textbf{0.776} & 396M & 本文选择 \\
-ResNet50-V1c & 0.878 & 0.764 & 456M & 轻微过拟合 \\
-ResNet101-V1c & 0.871 & 0.751 & 538M & 过拟合明显 \\
-\bottomrule
-\end{tabular}
-\end{table}
+编码器采用 ResNet18-V1c 作为骨干网络\upcite{He2015ResNet,wu2016widerdeeper}，使用 Deep Stem 结构（三个 3×3 卷积替代 7×7 卷积）。选择 ResNet18 而非更深的 ResNet50/101，主要考虑训练集规模有限（912 张图像），过深网络在小数据集上易过拟合，且 OCT 图像为二分类任务，浅层网络已具备足够的特征提取能力。
 
 解码器通过上采样和特征融合恢复空间分辨率：ASPP 输出的高层特征经双线性插值上采样，与编码器浅层特征（经 1×1 卷积降维后）在通道维度拼接，再经深度可分离卷积和 1×1 卷积输出像素级预测结果。
 
@@ -93,16 +72,34 @@ ASPP 模块的感受野受限于空洞卷积的局部性，仅覆盖特征图的
 \end{tabular}
 \end{table}
 
-\subsubsection{双层路由注意力机制}
+\subsubsection{TR 模块的整体结构}
 
-TR 模块受 BiFormer 的双层路由注意力思想启发\upcite{zhu2023biformervisiontransformerbilevel}，通过区域级路由和 TopK 选择机制，仅对最相关的窗口进行注意力计算，将计算复杂度从 $O(n^2)$ 降低到 $O(n^2 \times k/p^2)$。工作流程如图~\ref{fig:bilevel_attention}~所示。
+TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，采用 Transformer Block 架构，整体结构如图~\ref{fig:tr_module}~所示。模块接收 ASPP 的拼接输出特征图，经以下三个子模块依次处理：
 
 \begin{figure}[htbp]
 \centering
-\fbox{\parbox{0.88\textwidth}{\centering\vspace{3cm}{\heiti\zihao{5} [占位图：TR模块结构图]}\par\texttt{figure/cp3/fig3-3\_tr\_module\_horizontal.png}\vspace{3cm}}}
+\includegraphics[width=0.95\textwidth]{figure/cp4/fig4-3_tr_module.png}
 \caption{TR模块结构图（窗口大小 S=4，窗口数量 S\textsuperscript{2}=16，TopK=4）}
 \label{fig:tr_module}
 \end{figure}
+
+（1）卷积位置编码（Convolutional Position Encoding, CPE）。使用 $3 \times 3$ 深度可分离卷积为特征图注入隐式位置信息，输出与输入相加，使模型在不依赖固定位置编码的情况下感知空间位置。
+
+（2）双层路由注意力（Bi-level Routing Attention, BRA）。对 LayerNorm 归一化后的特征执行双层路由稀疏注意力（详见下文），输出通过残差连接与输入相加。
+
+（3）前馈网络（Feed-Forward Network, FFN）。对 LayerNorm 归一化后的特征依次通过线性层（升维 4 倍）、深度可分离卷积、GELU 激活和线性层（降维），输出同样通过残差连接。深度可分离卷积的引入使 FFN 在通道混合的同时保留局部空间信息。
+
+整个模块的前向传播可表示为：
+\begin{align}
+\mathbf{X}_1 &= \mathbf{X}_0 + \text{CPE}(\mathbf{X}_0) \\
+\mathbf{X}_2 &= \mathbf{X}_1 + \text{DropPath}\!\left(\text{BRA}\!\left(\text{LN}(\mathbf{X}_1)\right)\right) \\
+\mathbf{X}_3 &= \mathbf{X}_2 + \text{DropPath}\!\left(\text{FFN}\!\left(\text{LN}(\mathbf{X}_2)\right)\right)
+\end{align}
+其中 DropPath 以一定概率随机丢弃整条路径，起到正则化作用。
+
+\subsubsection{双层路由注意力机制}
+
+双层路由注意力（Bi-Level Routing Attention, BRA）是 TR 模块的核心计算单元，通过区域级路由和 TopK 选择机制，仅对最相关的窗口进行注意力计算，将计算复杂度从全局注意力的 $O(n^2)$ 降低到 $O(n^2 \times k/p^2)$。其工作流程如图~\ref{fig:bilevel_attention}~所示，包含以下四个步骤。
 
 \begin{figure}[htbp]
 \centering
@@ -111,55 +108,35 @@ TR 模块受 BiFormer 的双层路由注意力思想启发\upcite{zhu2023biforme
 \label{fig:bilevel_attention}
 \end{figure}
 
-步骤一，窗口划分。将输入特征图按固定窗口大小划分。
+\textbf{步骤一，QKV 投影与窗口划分。}输入特征图通过线性层投影为查询 $\mathbf{Q}$、键 $\mathbf{K}$ 和值 $\mathbf{V}$，然后按 $n_{\text{win}} \times n_{\text{win}}$ 的网格划分为 $p^2$ 个窗口，每个窗口包含 $w \times w$ 个像素。同时，值 $\mathbf{V}$ 经过一个 $5 \times 5$ 深度可分离卷积生成局部上下文增强（Local Context Enhancement, LCE）特征，用于在注意力输出后补充局部细节。
 
-步骤二，区域级路由。对每个窗口内的特征向量求平均，得到区域级查询和键向量：
+\textbf{步骤二，区域级路由。}对每个窗口内的 $\mathbf{Q}$ 和 $\mathbf{K}$ 分别求空间平均，得到区域级查询和键向量：
 \begin{equation}
 \mathbf{Q}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{Q}_j, \quad \mathbf{K}_{\text{region}}^{(i)} = \frac{1}{|\mathcal{W}_i|} \sum_{j \in \mathcal{W}_i} \mathbf{K}_j
 \label{eq:region_qk}
 \end{equation}
-
-计算窗口间相似度：
+计算窗口间的路由相似度矩阵 $\mathbf{S} \in \mathbb{R}^{p^2 \times p^2}$，并对每个查询窗口选择 TopK 个最相关的键窗口：
 \begin{equation}
-\mathbf{S}_{ij} = \frac{\mathbf{Q}_{\text{region}}^{(i)} \cdot \mathbf{K}_{\text{region}}^{(j)}}{\|\mathbf{Q}_{\text{region}}^{(i)}\| \times \|\mathbf{K}_{\text{region}}^{(j)}\|}
-\label{eq:routing_similarity}
+\mathbf{S}_{ij} = \frac{\mathbf{Q}_{\text{region}}^{(i)} \cdot (\mathbf{K}_{\text{region}}^{(j)})^T}{\sqrt{d_k}}, \quad \mathcal{R}_i = \text{TopK}(\mathbf{S}_{i,:},\, k)
+\label{eq:routing}
 \end{equation}
 
-步骤三，TopK 路由选择。每个窗口选择 4 个最相关的窗口：
-\begin{equation}
-\mathcal{R}_i = \text{TopK}(\mathbf{S}_{i,:}, k=4)
-\label{eq:topk_routing}
-\end{equation}
+\textbf{步骤三，KV 聚集。}根据路由索引 $\mathcal{R}_i$，从全部窗口中收集被选中的键值对，构成稀疏的 KV 集合 $\mathbf{K}_{\mathcal{R}_i}$、$\mathbf{V}_{\mathcal{R}_i}$。未被选中的窗口不参与后续计算，从而减少了注意力矩阵的规模。
 
-步骤四，细粒度注意力。仅对选定窗口进行像素级注意力计算：
+\textbf{步骤四，多头稀疏注意力。}在每个查询窗口内，对聚集后的 KV 执行标准的缩放点积多头注意力：
 \begin{equation}
-\text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\mathcal{R}_i}, \mathbf{V}_{\mathcal{R}_i}) = \text{softmax}\left(\frac{\mathbf{Q}_i \mathbf{K}_{\mathcal{R}_i}^T}{\sqrt{d_k}}\right) \mathbf{V}_{\mathcal{R}_i}
+\text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\mathcal{R}_i}, \mathbf{V}_{\mathcal{R}_i}) = \text{softmax}\!\left(\frac{\mathbf{Q}_i \mathbf{K}_{\mathcal{R}_i}^T}{\sqrt{d_k}}\right) \mathbf{V}_{\mathcal{R}_i}
 \label{eq:fine_attention}
 \end{equation}
+注意力输出与 LCE 特征相加后，经线性投影恢复到原始维度。
 
 \subsubsection{TR模块与BiFormer的差异}
 
-本文针对 OCT 图像特点进行了三点适配：（1）利用窗口平均操作固有的噪声平滑效应，使区域路由在散斑噪声下仍能稳定选择语义相关的窗口；（2）通过消融实验（表~\ref{tab:topk_ablation}）确定 TopK=4 即可覆盖细长结构的关键区域，继续增大反而引入背景噪声；（3）将 TR 模块嵌入 ASPP 输出之后而非作为独立骨干，利用 ASPP 已捕获的多尺度特征实现"多尺度+长程依赖"的互补。
+本文的 TR 模块与原始 BiFormer 的主要区别在于嵌入位置和参数选择。BiFormer 作为独立的骨干网络使用，而本文将 TR 模块嵌入 ASPP 输出之后，利用 ASPP 已捕获的多尺度特征作为输入，使注意力机制在多尺度语义信息的基础上建立长程依赖。此外，区域级路由中的窗口平均操作对散斑噪声有天然的平滑作用，使路由决策在 OCT 图像的噪声条件下仍能保持稳定。TopK 取 4，窗口大小取 $4 \times 4$，注意力头数取 8，均沿用 BiFormer 在语义分割任务上的推荐配置。
 
-\begin{table}[htbp]
-\centering
-\caption{TopK值消融实验}
-\label{tab:topk_ablation}
-\begin{tabular}{cccc}
-\toprule
-TopK值 & mIoU & 目标IoU & 备注 \\
-\midrule
-2 & 0.871 & 0.751 & 上下文不足 \\
-\textbf{4} & \textbf{0.884} & \textbf{0.776} & 本文选择 \\
-8 & 0.879 & 0.766 & 引入背景噪声 \\
-16 & 0.872 & 0.752 & 噪声影响显著 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsubsection{混合损失函数}
 
-\subsubsection{混合损失函数设计}
-
-OCT 图像中背景占 90\% 以上像素。单独使用交叉熵损失时，背景像素主导梯度方向；单独使用 Dice 损失时，训练早期梯度不稳定。本文将二者结合：
+OCT 图像中背景占 90\% 以上像素，单一的交叉熵损失容易被背景像素主导。本文采用 BCE 与 Dice 的混合损失：
 \begin{equation}
 L_{\text{BCE}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\sigma(p_i)) + (1-y_i) \log(1-\sigma(p_i)) \right]
 \label{eq:bce_loss}
@@ -172,25 +149,7 @@ L_{\text{Dice}} = 1 - \frac{2 \sum_{i=1}^{N} \sigma(p_i) \cdot y_i + \epsilon}{\
 L_{\text{total}} = \lambda_1 \cdot L_{\text{BCE}} + \lambda_2 \cdot L_{\text{Dice}}
 \label{eq:total_loss}
 \end{equation}
-
-表~\ref{tab:loss_ablation}~的消融实验表明 $\lambda_1=\lambda_2=2.0$ 时取得最优性能。
-
-\begin{table}[htbp]
-\centering
-\caption{损失函数权重消融实验}
-\label{tab:loss_ablation}
-\begin{tabular}{cccccc}
-\toprule
-$\lambda_1$ (BCE) & $\lambda_2$ (Dice) & mIoU & 目标IoU & mAcc & mDice \\
-\midrule
-1.0 & 0.0 & 0.832 & 0.673 & 0.891 & 0.895 \\
-0.0 & 1.0 & 0.845 & 0.698 & 0.903 & 0.908 \\
-1.0 & 1.0 & 0.862 & 0.732 & 0.918 & 0.921 \\
-\textbf{2.0} & \textbf{2.0} & \textbf{0.884} & \textbf{0.776} & \textbf{0.941} & \textbf{0.935} \\
-3.0 & 3.0 & 0.879 & 0.766 & 0.936 & 0.931 \\
-\bottomrule
-\end{tabular}
-\end{table}
+其中 BCE 损失提供稳定的逐像素梯度，Dice 损失直接优化区域重叠度、对前景占比不敏感。权重 $\lambda_1 = \lambda_2 = 2.0$。
 
 \subsection{SAE 空间感知增强模块设计}
 
@@ -202,47 +161,45 @@ TR 模块在编码器端增强了全局结构理解，但解码器在恢复空�
 
 \subsubsection{SAE模块原理与结构}
 
-SAE 模块在坐标注意力（CA）\upcite{hou2021coordinateattentionefficientmobile}与 SE 通道注意力\upcite{hu2019squeezeandexcitationnetworks}的基础上进行了针对性架构设计，由坐标注意力分支、特征卷积层和通道注意力分支三部分组成，结构如图~\ref{fig:sae_structure}~所示。
+SAE 模块在坐标注意力（Coordinate Attention, CA）\upcite{hou2021coordinateattentionefficientmobile}与 SE 通道注意力\upcite{hu2019squeezeandexcitationnetworks}的基础上进行了针对性架构设计，采用"坐标注意力→特征精炼→多基数通道注意力"的三级级联结构，如图~\ref{fig:sae_structure}~所示。模块接收解码器中低层特征与高层特征拼接后的融合特征，每级输出均通过残差连接与输入相加。
 
 \begin{figure}[htbp]
 \centering
-\fbox{\parbox{0.88\textwidth}{\centering\vspace{3cm}{\heiti\zihao{5} [占位图：SAE模块结构图]}\par\texttt{figure/cp4/sae\_diagram/fig4-1\_sae\_module\_horizontal.png}\vspace{3cm}}}
+\includegraphics[width=0.95\textwidth]{figure/cp4/fig4-5_sae_module.png}
 \caption{SAE模块结构图（输入通道 C=560，Reduction r=4）}
 \label{fig:sae_structure}
 \end{figure}
 
-（1）坐标信息嵌入。将全局池化解耦为两个一维操作。给定输入 $X \in \mathbb{R}^{C \times H \times W}$，分别沿水平和垂直方向聚合：
+\textbf{第一级：坐标注意力（Coordinate Attention）。}将全局池化解耦为两个方向的一维聚合。给定输入 $\mathbf{X} \in \mathbb{R}^{C \times H \times W}$，分别沿水平和垂直方向池化：
 \begin{equation}
 z_c^h(h) = \frac{1}{W}\sum_{0 \leq i < W} x_c(h, i), \quad z_c^w(w) = \frac{1}{H}\sum_{0 \leq j < H} x_c(j, w)
 \end{equation}
-$z^h \in \mathbb{R}^{C \times H \times 1}$ 和 $z^w \in \mathbb{R}^{C \times 1 \times W}$ 分别保留了水平和垂直方向的位置信息。
-
-（2）坐标注意力生成。将两个方向的特征图拼接后通过共享 $1 \times 1$ 卷积处理：
+得到 $\mathbf{z}^h \in \mathbb{R}^{C \times H \times 1}$ 和 $\mathbf{z}^w \in \mathbb{R}^{C \times 1 \times W}$，分别保留了水平和垂直方向的位置信息。将二者沿空间维度拼接后，通过共享 $1 \times 1$ 卷积降维（降维比 $r = 4$）、BN 和 h-swish 激活：
 \begin{equation}
-f = \delta(F_{1 \times 1}([z^h, z^w]))
+\mathbf{f} = \text{h-swish}\!\left(\text{BN}\!\left(F_{1 \times 1}([\mathbf{z}^h;\, \mathbf{z}^w])\right)\right)
 \end{equation}
-再沿空间维度切分并分别通过独立的 $1 \times 1$ 卷积和 Sigmoid 激活生成方向性权重：
+再沿空间维度切分，分别通过独立的 $1 \times 1$ 卷积和 Sigmoid 激活生成方向性注意力权重 $\mathbf{g}^h \in \mathbb{R}^{C \times H \times 1}$、$\mathbf{g}^w \in \mathbb{R}^{C \times 1 \times W}$，对输入特征图进行空间重标定：
 \begin{equation}
-g^h = \sigma(F_h(f^h)), \quad g^w = \sigma(F_w(f^w))
+\mathbf{Y}_1 = \mathbf{X} \odot \mathbf{g}^h \odot \mathbf{g}^w + \mathbf{X}
 \end{equation}
+其中 $\odot$ 表示逐元素乘法（沿对应维度广播）。h-swish 激活函数定义为 $\text{h-swish}(x) = x \cdot \text{ReLU6}(x+3)/6$，相比标准 Sigmoid 计算效率更高。
 
-（3）特征重标定。将注意力权重作用于输入特征图：
+\textbf{第二级：特征精炼。}坐标注意力的输出经过两层 $3 \times 3$ 卷积（每层后接 BN 和 ReLU），融合邻域上下文信息，输出通过残差连接：
 \begin{equation}
-y_c(i, j) = x_c(i, j) \times g_c^h(i) \times g_c^w(j)
+\mathbf{Y}_2 = \text{Conv}_{3 \times 3}\!\left(\text{Conv}_{3 \times 3}(\mathbf{Y}_1)\right) + \mathbf{Y}_1
 \end{equation}
-输出通过残差连接与输入相加。
+该级的作用是将坐标注意力增强后的特征与局部空间上下文进一步融合，弥补一维池化丢失的局部细节。
 
-（4）特征精炼。经过两层 $3 \times 3$ 卷积（含 BN 和 ReLU），进一步融合邻域上下文，输出同样通过残差连接。
+\textbf{第三级：多基数通道注意力（Multi-Cardinality SE）。}通过全局平均池化（Global Average Pooling, GAP）将空间维度压缩为 $1 \times 1$，然后使用 $\kappa$ 个并行的全连接分支，每个分支独立将通道维度从 $C$ 降至 $C/r$，经 ReLU 激活后拼接，再通过一个全连接层和 Sigmoid 恢复到 $C$ 维，生成通道权重：
+\begin{equation}
+\mathbf{s} = \sigma\!\left(W_{\text{fc}}\!\left[\text{ReLU}(W_1 \mathbf{p});\, \text{ReLU}(W_2 \mathbf{p});\, \text{ReLU}(W_3 \mathbf{p});\, \text{ReLU}(W_4 \mathbf{p})\right]\right)
+\end{equation}
+其中 $\mathbf{p} = \text{GAP}(\mathbf{Y}_2) \in \mathbb{R}^C$，$W_i \in \mathbb{R}^{(C/r) \times C}$ 为第 $i$ 个分支的权重矩阵，$W_{\text{fc}} \in \mathbb{R}^{C \times (\kappa \cdot C/r)}$ 为融合层权重，本文取 $\kappa = 4$，$r = 4$。多个并行分支各自学习不同的通道依赖模式，相比单一 SE 路径提供了更丰富的通道间特征交互。最终输出为：
+\begin{equation}
+\mathbf{Y}_3 = \mathbf{Y}_2 \odot \mathbf{s}
+\end{equation}
 
-（5）通道注意力增强。通过全局平均池化压缩空间信息后，4 个并行全连接层分别捕捉不同的通道依赖模式，拼接后经全连接层和 Sigmoid 激活生成通道权重，对特征图各通道进行自适应重标定。
-
-\subsubsection{SAE模块的设计创新}
-
-SAE 模块的创新体现在三个方面：（1）将坐标注意力从移动端识别任务适配到分割任务的解码器端，利用水平—垂直方向聚合增强细长结构边界的方向性感知；（2）设计"坐标注意力→特征精炼→通道注意力"的级联结构，实现空间与通道维度的逐级增强；（3）通道注意力分支采用 4 个并行全连接层替代单一路径，增强通道间特征交互的多样性。
-
-\subsubsection{SAE模块集成方式}
-
-SAE 模块被集成于 DeepLabV3+ 解码器的低层特征降维之后、与高层特征拼接之前。低层特征包含丰富的空间细节但也夹杂噪声，在拼接前引入空间感知增强，可以突出边界相关特征、抑制噪声，提升后续特征融合的质量。
+SAE 模块集成于 DeepLabV3+ 解码器中低层特征与高层特征拼接之后。该位置的特征同时包含浅层的空间细节和深层的语义信息，在此处引入空间感知增强可以在特征融合阶段突出边界相关响应。模块输出通过残差连接与输入相加，每级均保持梯度流通。
 
 \subsection{改进模型整体结构与协同机制}
 
@@ -257,22 +214,22 @@ SAE 模块被集成于 DeepLabV3+ 解码器的低层特征降维之后、与高�
 
 改进后的模型在 DeepLabV3+ 基础上做了三项优化：编码器端在 ASPP 之后引入 TR 模块建立长距离依赖；解码器端在低层特征处理分支中集成 SAE 模块增强空间位置感知；训练时采用 BCE+Dice 混合损失函数缓解类别不平衡。
 
-\subsubsection{各模块协同机制}
+\subsubsection{各模块协同机制与前向传播流程}
 
-TR 模块位于编码器端，在 ASPP 输出的高层语义特征上建立全局依赖关系。SAE 模块位于解码器端，对低层细节特征进行空间位置感知增强。二者的分工可以概括为：TR 负责"看全局，防断裂"，SAE 负责"抓边界，提细节"。
+改进模型的完整前向传播流程如下。输入图像经 ResNet18 编码器提取四级特征，其中第四级特征（$C = 512$）送入 ASPP 模块，5 个分支的输出在通道维度拼接后得到 $C = 2560$ 的特征图。TR 模块在此特征上执行双层路由注意力，通过残差连接输出增强后的全局特征，再经 $1 \times 1$ 瓶颈卷积降维至 $C = 512$。该特征经双线性插值上采样后，与编码器第一级浅层特征（经 $1 \times 1$ 卷积降维至 $C = 48$）在通道维度拼接，得到 $C = 560$ 的融合特征。SAE 模块在此融合特征上依次执行坐标注意力、特征精炼和多基数通道注意力，通过残差连接输出空间增强后的特征。最终经深度可分离卷积和 $1 \times 1$ 分类卷积输出像素级预测。
 
-消融实验的数据直观地反映了这种互补性：单独使用 TR 可提升 mIoU 3.9\%，单独使用 SAE 可提升 5.9\%，同时使用可提升 7.1\%。
+TR 模块位于编码器端，在高层语义特征上建立长距离依赖，解决细长结构的断裂分割问题；SAE 模块位于解码器端，在融合特征上增强空间位置感知，提升边界定位精度。二者形成"编码端重结构、解码端重细节"的互补架构。消融实验的数据直观地反映了这种互补性：单独使用 TR 可提升 mIoU 3.9\%，单独使用 SAE 可提升 5.9\%，同时使用可提升 7.1\%。
 
 \subsection{综合实验与分析}
 
 \subsubsection{实验环境与参数配置}
 
-实验环境配置如表~\ref{tab:env_config}~所示，训练参数配置如表~\ref{tab:train_config}~所示。
+实验环境与训练参数配置如表~\ref{tab:env_train_config}~所示。
 
 \begin{table}[htbp]
 \centering
-\caption{实验环境配置}
-\label{tab:env_config}
+\caption{实验环境与训练参数配置}
+\label{tab:env_train_config}
 \begin{tabular}{cc}
 \toprule
 配置项 & 参数 \\
@@ -281,27 +238,13 @@ GPU & NVIDIA GeForce RTX 4090D (24GB) × 1 \\
 CPU & AMD EPYC 9754 128-Core Processor（18 vCPU） \\
 内存 & 60 GB \\
 操作系统 & Ubuntu 20.04 LTS \\
-深度学习框架 & PyTorch 1.10.0 \\
-分割框架 & MMSegmentation \\
-GPU加速工具 & CUDA 11.3 \\
-编程语言 & Python 3.8 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[htbp]
-\centering
-\caption{实验参数配置}
-\label{tab:train_config}
-\begin{tabular}{cc}
-\toprule
-参数 & 设置 \\
+深度学习框架 & PyTorch 1.10.0 / MMSegmentation \\
+CUDA & 11.3 \\
 \midrule
 训练迭代次数 & 20,000 次 \\
 批量大小 & 8 \\
-优化器 & Adam \\
-初始学习率 & $1 \times 10^{-6}$ \\
-学习率调度策略 & 多项式衰减（power=0.9） \\
+优化器 & Adam（初始学习率 $1 \times 10^{-6}$） \\
+学习率调度 & 多项式衰减（power=0.9） \\
 输入尺寸 & $512 \times 512$ \\
 评估间隔 & 每 500 次迭代 \\
 \bottomrule
@@ -330,7 +273,7 @@ DeepLabV3+ (基线) & $\times$ & $\times$ & 0.851 & 0.923 & 0.913 & - \\
 \end{tabular}
 \end{table}
 
-TR 模块通过全局依赖建模使 mIoU 从 0.851 提升至 0.884（+3.9\%），SAE 模块仅增加 25M 参数量即实现 mIoU 5.9\% 的提升（参数效率 0.236），两模块同时使用达到 0.911（+7.1\%）。组合提升幅度（7.1\%）小于单模块之和（9.8\%），说明二者在提升路径上有一定重叠，但组合配置在所有指标上均为最优，体现了全局与局部增强的互补性。
+TR 模块通过全局依赖建模使 mIoU 从 0.851 提升至 0.884（+3.9\%），SAE 模块仅增加约 25M 参数量即实现 mIoU 5.9\% 的提升，两模块同时使用达到 0.911（+7.1\%）。组合提升幅度（7.1\%）小于单模块之和（9.8\%），说明二者在提升路径上有一定重叠，但组合配置在所有指标上均为最优，体现了全局与局部增强的互补性。
 
 表~\ref{tab:boundary}~给出了边界精度对比。
 

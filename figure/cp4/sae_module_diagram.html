@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #ffffff; font-family: Arial, sans-serif;
+  display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box;
+}
+
+.outer-bg {
+  background: #F5ECD7;
+  border-radius: 14pt;
+  display: flex; flex-direction: row; align-items: center;
+  padding: 24pt 14pt;
+  box-sizing: border-box;
+}
+
+.block {
+  background: #D6E4F0;
+  border: 1pt solid #B0C4DE;
+  border-radius: 4pt;
+  text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+}
+
+.add-circle {
+  width: 22pt; height: 22pt;
+  background: #ffffff;
+  border: 1.5pt solid #333333;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.seg {
+  height: 2pt;
+  background: #333333;
+  flex-shrink: 0;
+}
+
+.stage-label {
+  background: #F5F5F5;
+  border: 1pt solid #BDBDBD;
+  border-radius: 8pt;
+  padding: 1pt 6pt;
+}
+</style>
+</head>
+<body>
+
+<div class="outer-bg">
+
+  <p style="margin:0 3pt 0 0; font-size:7pt; color:#666; font-style:italic;">Input</p>
+
+  <div class="seg" style="width:10pt;"></div>
+
+  <!-- Stage 1: Coordinate Attention -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:3pt;">
+    <div class="stage-label">
+      <p style="margin:0; font-size:6pt; color:#616161; font-weight:bold;">Stage 1</p>
+    </div>
+    <div class="block" style="padding:6pt 8pt;">
+      <p style="margin:0; font-size:9pt; color:#333;">Coordinate</p>
+      <p style="margin:1pt 0 0 0; font-size:9pt; color:#333;">Attention</p>
+    </div>
+  </div>
+
+  <div class="seg" style="width:6pt;"></div>
+
+  <!-- Add 1 -->
+  <div class="add-circle">
+    <p style="margin:0; font-size:12pt; font-weight:bold; color:#333;">+</p>
+  </div>
+
+  <div class="seg" style="width:10pt;"></div>
+
+  <!-- Stage 2: Feature Refinement -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:3pt;">
+    <div class="stage-label">
+      <p style="margin:0; font-size:6pt; color:#616161; font-weight:bold;">Stage 2</p>
+    </div>
+    <div style="display:flex; flex-direction:row; align-items:center; gap:0;">
+      <div class="block" style="padding:6pt 6pt;">
+        <p style="margin:0; font-size:8pt; color:#333;">Conv 3x3</p>
+        <p style="margin:1pt 0 0 0; font-size:7pt; color:#666;">BN+ReLU</p>
+      </div>
+      <div class="seg" style="width:6pt;"></div>
+      <div class="block" style="padding:6pt 6pt;">
+        <p style="margin:0; font-size:8pt; color:#333;">Conv 3x3</p>
+        <p style="margin:1pt 0 0 0; font-size:7pt; color:#666;">BN+ReLU</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="seg" style="width:6pt;"></div>
+
+  <!-- Add 2 -->
+  <div class="add-circle">
+    <p style="margin:0; font-size:12pt; font-weight:bold; color:#333;">+</p>
+  </div>
+
+  <div class="seg" style="width:10pt;"></div>
+
+  <!-- Stage 3: Multi-Cardinality SE -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:3pt;">
+    <div class="stage-label">
+      <p style="margin:0; font-size:6pt; color:#616161; font-weight:bold;">Stage 3</p>
+    </div>
+    <div style="display:flex; flex-direction:row; align-items:center; gap:0;">
+      <div class="block" style="padding:6pt 6pt;">
+        <p style="margin:0; font-size:8pt; color:#333;">GAP</p>
+      </div>
+      <div class="seg" style="width:5pt;"></div>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:2pt;">
+        <div class="block" style="padding:3pt 5pt;">
+          <p style="margin:0; font-size:7pt; color:#333;">FC</p>
+        </div>
+        <div class="block" style="padding:3pt 5pt;">
+          <p style="margin:0; font-size:7pt; color:#333;">FC</p>
+        </div>
+        <div class="block" style="padding:3pt 5pt;">
+          <p style="margin:0; font-size:7pt; color:#333;">FC</p>
+        </div>
+        <div class="block" style="padding:3pt 5pt;">
+          <p style="margin:0; font-size:7pt; color:#333;">FC</p>
+        </div>
+      </div>
+      <div class="seg" style="width:5pt;"></div>
+      <div class="block" style="padding:6pt 5pt;">
+        <p style="margin:0; font-size:7pt; color:#333;">Concat</p>
+      </div>
+      <div class="seg" style="width:5pt;"></div>
+      <div class="block" style="padding:6pt 5pt;">
+        <p style="margin:0; font-size:7pt; color:#333;">FC</p>
+      </div>
+      <div class="seg" style="width:5pt;"></div>
+      <div class="block" style="padding:6pt 5pt;">
+        <p style="margin:0; font-size:7pt; color:#333;">Sigmoid</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="seg" style="width:6pt;"></div>
+
+  <!-- Multiply -->
+  <div class="add-circle">
+    <p style="margin:0; font-size:11pt; font-weight:bold; color:#333;">x</p>
+  </div>
+
+  <div class="seg" style="width:10pt;"></div>
+
+  <p style="margin:0 0 0 3pt; font-size:7pt; color:#666; font-style:italic;">Output</p>
+
+</div>
+
+</body>
+</html>
