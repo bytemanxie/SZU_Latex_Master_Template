@@ -1,10 +1,11 @@
 \clearpage
 
 \section{基于双重注意力机制的 OCT 图像语义分割方法}
+\markboth{第四章\hspace{1em}基于双重注意力机制的 OCT 图像语义分割方法}{}
 
 OCT 图像存在散斑噪声强、对比度低、边界模糊等特点，给熔深区域的自动化提取带来困难。本章以 DeepLabV3+ 为基线模型，针对 ASPP 模块全局上下文建模不足和解码器边界定位不精确两个问题，分别在编码器端和解码器端引入 TR（Transformer Routing）全局注意力模块和 SAE（Spatial Awareness Enhancement）空间感知增强模块，通过消融实验和对比实验验证所提方法的有效性。
 
-\subsection{DeepLabV3+基线模型}
+\subsection{DeepLabV3+ 基线模型}
 
 DeepLabV3+ 由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}，结合空洞卷积、ASPP 模块和编码器-解码器结构，在多尺度上下文信息捕获方面表现出色。DeepLabV3+ 的整体网络结构已在第二章图~\ref{fig:deeplabv3plus_structure}~中详细展示。
 
@@ -14,7 +15,7 @@ DeepLabV3+ 由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}，结合�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.9\textwidth]{figure/cp3/fig3-1_dilated_conv.png}
+\includegraphics[width=0.9\textwidth]{figure/cp4/fig4-1_dilated_conv.png}
 \caption{空洞卷积示意图\upcite{Patel2021Atrous}}
 \label{fig:dilated_conv}
 \end{figure}
@@ -26,13 +27,13 @@ DeepLabV3+ 由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}，结合�
 \end{equation}
 其中，$(i, j)$ 表示输出特征图的位置坐标，$(m, n)$ 表示卷积核的索引。当 $r = 1$ 时退化为标准卷积；当 $r > 1$ 时，有效感受野扩大为 $(2r - 1) \times k + 1$，$k$ 为卷积核原始尺寸。
 
-\subsubsection{ASPP模块}
+\subsubsection{ASPP 模块}
 
 ASPP（Atrous Spatial Pyramid Pooling）模块通过多个不同空洞率的并行分支捕获多尺度上下文信息\upcite{Chen2017DeepLabV3}，结构如图~\ref{fig:aspp_module}~所示。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-2_aspp_module.png}
+\includegraphics[width=0.85\textwidth]{figure/cp4/fig4-2b_aspp_module.png}
 \caption{ASPP模块结构图}
 \label{fig:aspp_module}
 \end{figure}
@@ -103,7 +104,7 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figure/cp3/fig3-4_bilevel_attention.png}
+\includegraphics[width=0.85\textwidth]{figure/cp4/fig4-4_bilevel_attention.png}
 \caption{双层路由注意力机制示意图（窗口大小：4×4，窗口数量：16，TopK=4）}
 \label{fig:bilevel_attention}
 \end{figure}
@@ -130,7 +131,7 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 \end{equation}
 注意力输出与 LCE 特征相加后，经线性投影恢复到原始维度。
 
-\subsubsection{TR模块与BiFormer的差异}
+\subsubsection{TR 模块与 BiFormer 的差异}
 
 本文的 TR 模块与原始 BiFormer 的主要区别在于嵌入位置和参数选择。BiFormer 作为独立的骨干网络使用，而本文将 TR 模块嵌入 ASPP 输出之后，利用 ASPP 已捕获的多尺度特征作为输入，使注意力机制在多尺度语义信息的基础上建立长程依赖。此外，区域级路由中的窗口平均操作对散斑噪声有天然的平滑作用，使路由决策在 OCT 图像的噪声条件下仍能保持稳定。TopK 取 4，窗口大小取 $4 \times 4$，注意力头数取 8，均沿用 BiFormer 在语义分割任务上的推荐配置。
 
@@ -159,7 +160,7 @@ TR 模块在编码器端增强了全局结构理解，但解码器在恢复空�
 
 传统解码器存在三个局限：多次下采样导致空间位置信息丢失，恢复有限；所有通道均匀加权，未区分边界通道与非边界通道的贡献差异；缺乏对细长结构在水平和垂直方向上特征分布差异的方向性建模。
 
-\subsubsection{SAE模块原理与结构}
+\subsubsection{SAE 模块原理与结构}
 
 SAE 模块在坐标注意力（Coordinate Attention, CA）\upcite{hou2021coordinateattentionefficientmobile}与 SE 通道注意力\upcite{hu2019squeezeandexcitationnetworks}的基础上进行了针对性架构设计，采用"坐标注意力→特征精炼→多基数通道注意力"的三级级联结构，如图~\ref{fig:sae_structure}~所示。模块接收解码器中低层特征与高层特征拼接后的融合特征，每级输出均通过残差连接与输入相加。
 

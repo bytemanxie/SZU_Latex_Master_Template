@@ -1,6 +1,7 @@
 \clearpage
 
 \section{基于 CUDA 的 OCT 图像加速重建算法设计}
+\markboth{第三章\hspace{1em}基于 CUDA 的 OCT 图像加速重建算法设计}{}
 
 SD-OCT 系统的原始干涉谱数据需经光谱整形、背景扣除、K 线性化、色差补偿、FFT 和幅值提取等步骤才能重建为深度图像。本文所使用系统的 A 扫采集频率为 82~kHz，CPU 端串行处理无法匹配这一速率。本章将全部后处理步骤移植到 GPU 上并行执行，重点解决三次样条 K 线性化中三对角方程组的并行求解问题，并针对细粒度 B 扫场景下的性能衰减提出统一内存优化方案。
 
@@ -88,7 +89,7 @@ y = A \cdot f_k + B \cdot f_{k+1} + \frac{h^2}{6}\left[(A^3 - A) \cdot y_{2,k} +
 \end{equation}
 其中 $A = (\lambda_{k+1} - x) / h$，$B = (x - \lambda_k) / h$，$h = |\lambda_{k+1} - \lambda_k|$。这一实现的问题在于：每个 block 的 256 个线程中，只有 1 个在做三对角求解，其余 255 个线程在同步点处空等，GPU 的并行能力在此阶段利用率不足 0.4\%。
 
-为消除这一串行瓶颈，本文引入并行循环还原（Parallel Cyclic Reduction, PCR）算法替代 Thomas 算法。PCR 通过逐层消去相隔 $2^l$ 的未知量，将 $N$ 个方程的求解过程分解为 $\log_2 N$ 层并行迭代，每层内所有方程独立更新，可由 block 内的全部线程同时执行。图~\ref{fig:pcr_scheme}~对比了 Thomas 算法与 PCR 算法在一个 block 内的线程利用情况。
+为消除这一串行瓶颈，本文引入并行循环还原（Parallel Cyclic Reduction, PCR）算法\upcite{Zhang2010PCR}替代 Thomas 算法。PCR 通过逐层消去相隔 $2^l$ 的未知量，将 $N$ 个方程的求解过程分解为 $\log_2 N$ 层并行迭代，每层内所有方程独立更新，可由 block 内的全部线程同时执行。图~\ref{fig:pcr_scheme}~对比了 Thomas 算法与 PCR 算法在一个 block 内的线程利用情况。
 
 \begin{figure}[htbp]
 \centering
@@ -144,7 +145,7 @@ $\log_2 N$ 层迭代完成后，每行的方程已化简为 $b_i' \cdot y_{2,i} 
 
 K 线性化完成后，信号进入频域变换阶段。色差补偿核函数 \texttt{MutiplyKernel}（复数版本）将插值后的实数信号与预先标定的色差补偿系数 $G_c(k)$ 做逐点复数乘法，校正参考臂与样品臂之间的群速度色散。$G_c$ 的实部和虚部分别由标定文件 \texttt{Gc\_real.txt} 和 \texttt{Gc\_imag.txt} 读入，在初始化阶段通过 \texttt{cudaMemcpy} 拷贝到设备端，存储为 \texttt{cufftComplex} 类型。核函数中，每个线程通过取模运算 \texttt{(ind * LoopNum + i) \% N} 索引到对应列的 $G_c$ 系数，分别计算实部和虚部的乘积，将实数信号转换为复数信号供后续 FFT 使用。该核函数同样采用 LoopNum 展开策略。
 
-FFT 使用 NVIDIA cuFFT 库的 \texttt{cufftExecC2C} 函数，以 C2C 模式执行前向变换。FFT 计划通过 \texttt{cufftPlanMany} 一次性创建，使 cuFFT 在一次调用中同时对 $M$ 条 A 扫执行 $N$ 点 FFT，内部自动选择最优的并行分解策略（Cooley-Tukey 或 Bluestein），结果原地写回。
+FFT 使用 NVIDIA cuFFT 库\upcite{cuFFT_UserGuide}的 \texttt{cufftExecC2C} 函数，以 C2C 模式执行前向变换。FFT 计划通过 \texttt{cufftPlanMany} 一次性创建，使 cuFFT 在一次调用中同时对 $M$ 条 A 扫执行 $N$ 点 FFT，内部自动选择最优的并行分解策略（Cooley-Tukey 或 Bluestein），结果原地写回。
 
 幅值提取核函数 \texttt{AmplitudeKernel} 按式~(\ref{eq:gray_mapping})~对 FFT 输出执行取模与对数灰度映射，同样采用 LoopNum 展开。在 2D B 扫显示模式下，帧合并核函数 \texttt{MergeKernel} 以二维线程网格运行（$x$ 方向对应采样点，$y$ 方向对应输出帧索引），将 $M$ 条 A 扫按每 \texttt{merge} 条为一组在 $y$ 方向循环累加，通过多帧叠加降低随机噪声。合并结果存入临时设备缓冲区，拷贝回主机后释放。
 
@@ -227,7 +228,7 @@ $M = 100$ 时，传统方案中两次 \texttt{cudaMemcpy} 和一次全局同步�
 \midrule
 GPU & NVIDIA GeForce RTX 4090D (24GB) \\
 CPU & AMD EPYC 9754 128-Core Processor \\
-CUDA Toolkit & 11.3 \\
+CUDA Toolkit & 12.1 \\
 光谱仪 A 扫速率 & 82 kHz \\
 A 扫采样点数 & 2048 \\
 原始数据类型 & uint16（12 位有效） \\

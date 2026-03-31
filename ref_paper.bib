@@ -649,3 +649,96 @@
   month   = {04},
   pages   = {1428--1441}
 }
+
+% ---------- CUDA 与 GPU 并行计算 ----------
+% CUDA C++ 编程指南（统一内存等特性的官方参考）
+@manual{CUDA_UnifiedMemory,
+  title        = {{CUDA} {C++} Programming Guide},
+  organization = {NVIDIA Corporation},
+  year         = {2024},
+  note         = {Version 12.4, \url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/}}
+}
+
+% cuFFT 库用户手册
+@manual{cuFFT_UserGuide,
+  title        = {{cuFFT} Library User's Guide},
+  organization = {NVIDIA Corporation},
+  year         = {2024},
+  note         = {Version 12.4, \url{https://docs.nvidia.com/cuda/cufft/}}
+}
+
+% PCR（并行循环还原）GPU 三对角方程求解算法
+@inproceedings{Zhang2010PCR,
+  title     = {Fast Tridiagonal Solvers on the {GPU}},
+  author    = {Zhang, Yao and Cohen, Jonathan and Owens, John D.},
+  booktitle = {Proceedings of the 15th ACM SIGPLAN Symposium on Principles and Practice of Parallel Programming},
+  pages     = {127--136},
+  year      = {2010},
+  publisher = {ACM}
+}
+
+% ---------- GPU 加速 OCT 重建（同类工作背景） ----------
+% Zhang & Kang 2010：GPU 加速非线性 k 域 FD-OCT，FX5800 平台 100k A-line/s
+@article{Zhang2010GPU_OCT,
+  title   = {Real-time 4D signal processing and visualization using graphics processing unit
+             on a regular nonlinear-k {Fourier}-domain {OCT} system},
+  author  = {Zhang, Kang and Kang, Jin U.},
+  journal = {Optics Express},
+  volume  = {18},
+  number  = {11},
+  pages   = {11772--11784},
+  year    = {2010}
+}
+
+% Rasakanthan 2011：GPU 加速 FD-OCT，524 kHz 线速率
+@article{Rasakanthan2011GPU,
+  title   = {Processing and rendering of {Fourier} domain optical coherence tomography images at a line rate over 524~{kHz} using a graphics processing unit},
+  author  = {Rasakanthan, Janaka and Sugden, Kate and Tomlins, Pete H.},
+  journal = {Journal of Biomedical Optics},
+  volume  = {16},
+  number  = {2},
+  pages   = {020505},
+  year    = {2011}
+}
+
+% Lyu 2022：GPU + 双 CUDA 流加速内窥 SS-OCT 实时成像
+@article{Lyu2022GPU,
+  title   = {Swept-source endoscopic optical coherence tomography real-time imaging system based on {GPU} acceleration for axial megahertz high-speed scanning},
+  author  = {Lyu, Jing and Ren, Lei and Liu, Qing-Yun and others},
+  journal = {European Review for Medical and Pharmacological Sciences},
+  volume  = {26},
+  number  = {20},
+  pages   = {7349--7358},
+  year    = {2022}
+}
+
+% Chen 2020：CUDA GPU 实现 en-face Gabor OCT 血流成像实时处理
+@article{Chen2020CUDA,
+  title   = {Real-time en-face {Gabor} optical coherence tomographic angiography on human skin using {CUDA} {GPU}},
+  author  = {Chen, Congliang and Shi, Wenxuan and Yang, Victor X. D.},
+  journal = {Biomedical Optics Express},
+  volume  = {11},
+  number  = {5},
+  pages   = {2794--2805},
+  year    = {2020}
+}
+
+% 周金浩（2024，杭电）：SS-OCT+GPU 一体化加速重建
+@masterthesis{ZhouJinhao2024GPU_OCT,
+  author   = {周金浩},
+  title    = {基于 {GPU} 的 {SS-OCT} 三维图像的加速重建算法研究与实现},
+  address  = {杭州},
+  school   = {杭州电子科技大学},
+  year     = {2024},
+  language = {zh}
+}
+
+% 赵金汉（2025，电子科大）：焊接 OCT + CUDA 统一内存优化
+@masterthesis{ZhaoJinhan2025Weld_OCT,
+  author   = {赵金汉},
+  title    = {基于 {OCT} 的激光焊接过程匙孔稳定性实时定量评估技术},
+  address  = {成都},
+  school   = {电子科技大学},
+  year     = {2025},
+  language = {zh}
+}
