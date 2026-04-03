@@ -105,7 +105,7 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.85\textwidth]{figure/cp4/fig4-4_bilevel_attention.png}
-\caption{双层路由注意力机制示意图（窗口大小：4×4，窗口数量：16，TopK=4）}
+\caption{双层路由注意力机制示意图}
 \label{fig:bilevel_attention}
 \end{figure}
 
@@ -167,7 +167,7 @@ SAE 模块在坐标注意力（Coordinate Attention, CA）\upcite{hou2021coordin
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.95\textwidth]{figure/cp4/fig4-5_sae_module.png}
-\caption{SAE模块结构图（输入通道 C=560，Reduction r=4）}
+\caption{SAE 模块结构图}
 \label{fig:sae_structure}
 \end{figure}
 
@@ -206,14 +206,14 @@ SAE 模块集成于 DeepLabV3+ 解码器中低层特征与高层特征拼接之�
 
 \subsubsection{完整模型架构}
 
+改进后的模型整体结构如图~\ref{fig:final_model}~所示，在 DeepLabV3+ 基础上做了三项优化：编码器端在 ASPP 之后引入 TR 模块建立长距离依赖；解码器端在低层特征处理分支中集成 SAE 模块增强空间位置感知；训练时采用 BCE+Dice 混合损失函数缓解类别不平衡。
+
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.95\textwidth]{figure/cp4/fig4-2_improved_model_structure.png}
 \caption{改进模型（DeepLabV3+ + TR + SAE）整体结构图}
 \label{fig:final_model}
 \end{figure}
-
-改进后的模型在 DeepLabV3+ 基础上做了三项优化：编码器端在 ASPP 之后引入 TR 模块建立长距离依赖；解码器端在低层特征处理分支中集成 SAE 模块增强空间位置感知；训练时采用 BCE+Dice 混合损失函数缓解类别不平衡。
 
 \subsubsection{各模块协同机制与前向传播流程}
 
@@ -344,6 +344,8 @@ DeepLabV3+ (基线) & 0.992 & 0.996 & 0.710 & 0.850 & 0.830 \\
 
 \subsubsection{可视化分析}
 
+图~\ref{fig:comparison_all}~展示了全部方法的分割结果可视化对比。
+
 \begin{figure}[htbp]
 \centering
 \subfigure[原图]{
@@ -381,9 +383,11 @@ DeepLabV3+ (基线) & 0.992 & 0.996 & 0.710 & 0.850 & 0.830 \\
 \label{fig:comparison_all}
 \end{figure}
 
-图~\ref{fig:comparison_all}~的可视化结果表明：UNet 系列在细长结构上出现断裂，TransUNet 有所改善但精度不足；单独加 TR 后连续性改善，单独加 SAE 后边界更锐利，两者同时使用时分割结果兼具全局完整性和边界精确性。
+从可视化结果可以看出：UNet 系列在细长结构上出现断裂，TransUNet 有所改善但精度不足；单独加 TR 后连续性改善，单独加 SAE 后边界更锐利，两者同时使用时分割结果兼具全局完整性和边界精确性。
 
 \subsubsection{效率分析}
+
+表~\ref{tab:efficiency}~从参数量和内存占用两个方面对不同方法进行对比分析。
 
 \begin{table}[htbp]
 \centering

@@ -191,7 +191,7 @@ CUDA 统一内存（Unified Memory）允许 CPU 和 GPU 通过同一指针访问
 
 \subsubsection{优化效果分析}
 
-表~\ref{tab:unified_mem}~给出了不同 B 扫粒度（$M$）下，传统方案（显式 \texttt{cudaMemcpy} + \texttt{cudaDeviceSynchronize}）与统一内存方案（\texttt{cudaMallocManaged} + \texttt{cudaEvent}）的端到端延迟对比。测试环境为 NVIDIA RTX 4090D GPU，CUDA 11.3，每个粒度取 10 次测量的均值。
+表~\ref{tab:unified_mem}~给出了不同 B 扫粒度（$M$）下，传统方案（显式 \texttt{cudaMemcpy} + \texttt{cudaDeviceSynchronize}）与统一内存方案（\texttt{cudaMallocManaged} + \texttt{cudaEvent}）的端到端延迟对比。测试环境为 NVIDIA RTX 4090D GPU，CUDA 12.1，每个粒度取 10 次测量的均值。
 
 \begin{table}[htbp]
 \centering
@@ -287,7 +287,7 @@ RTX 4090D & CUDA & 0.74 ms & 1351 k \\
 \end{tabular}
 \end{table}
 
-CUDA 实现相比 MATLAB 加速约 117 倍，相比 C++ 加速约 71 倍，折合处理速率约 1351k A-line/s，远超光谱仪 82~kHz 的采集速率。
+CUDA 实现相比 MATLAB 加速约 117 倍，相比 C++ 加速约 71 倍，折合处理速率约 1350k A-line/s，远超光谱仪 82~kHz 的采集速率。
 
 \subsubsection{PCR 样条插值精度验证}
 
@@ -312,7 +312,7 @@ PCR 版本与 MATLAB \texttt{spline} 的最大绝对误差为 $3.8 \times 10^{-5
 
 \subsection{本章小结}
 
-本章将 SD-OCT 系统 82~kHz 采集速率下的全部后处理步骤移植到 GPU 上并行执行，流水线采用"单次输入、全程设备端、单次输出"的数据流设计。在 RTX 4090D 上，$M = 1000$ 时端到端处理耗时约 742~\textmu s，折合处理速率约 1351k A-line/s，相比 MATLAB 加速约 117 倍，相比 C++ 加速约 71 倍。
+本章将 SD-OCT 系统 82~kHz 采集速率下的全部后处理步骤移植到 GPU 上并行执行，流水线采用"单次输入、全程设备端、单次输出"的数据流设计。在 RTX 4090D 上，$M = 1000$ 时端到端处理耗时约 742~\textmu s，折合处理速率约 1350k A-line/s，相比 MATLAB 加速约 117 倍，相比 C++ 加速约 71 倍。
 
 在 K 线性化步骤中，本文引入 PCR 并行循环还原算法替代 Thomas 串行算法求解三次样条的三对角方程组，将三对角求解从串行 $O(N)$ 步降低为 $\log_2 N$ 层并行迭代，使 block 内全部 256 个线程参与求解。PCR 版本与 MATLAB \texttt{spline} 的 RMSE 为 $1.2 \times 10^{-5}$，与 Thomas 串行版本精度一致，同时消除了 255/256 的线程空等。
 
