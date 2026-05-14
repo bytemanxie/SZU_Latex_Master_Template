@@ -50,7 +50,7 @@
 
 （3）基于可见光成像的视觉监测方法。高速可见光相机可获取熔池/匙孔的高分辨率二维形态图像，通过图像处理算法提取熔池轮廓、匙孔开口面积、飞溅轨迹等特征参数\upcite{张兵宪2021工艺参数对,温鹏2017不锈钢车体搭接接头激光非熔透焊接工艺及其拉剪性能}。近年来，随着深度学习技术的发展，基于卷积神经网络的焊接图像分析方法也得到了广泛研究。视觉监测方法的优势在于分辨率高、信息丰富，但其主要局限包括：相机需要在强光环境下工作，对滤光片与曝光参数要求严格；图像仅能反映熔池表面的二维形态，无法直接测量匙孔深度；图像处理流程复杂，实时性受限。
 
-（4）基于主动探测的层析成像方法。与上述被动式监测方法不同，基于主动探测光束的层析成像技术可直接获取焊接区域的深度结构信息。X 射线成像技术具有强大的穿透能力，可实时观察匙孔内部形态与熔池流动，是研究激光深熔焊物理机制的重要手段\upcite{svenungsson2015laser}。然而，X 射线源设备体积庞大、成本高昂，且存在辐射安全隐患，难以在工业产线上大规模部署。光学相干层析成像（OCT）作为另一种主动探测技术，如第 1.1 节所述，具有微米级轴向分辨率、非接触、可穿透焊接烟尘与金属蒸汽等特点，近年来受到学术界与工业界的广泛关注\upcite{HuangYiwei_OCT_WeldDepth,BOLEY201956,mittelstadt2019novel}。OCT 可通过测量光束直接获取匙孔底部的反射信息，从而为熔深在线测量提供直接的几何依据\upcite{谢冠明2023基于光学相干层析的激光焊接熔深监测方法,s23115223}。
+（4）基于主动探测的层析成像方法。与上述被动式监测方法不同，基于主动探测光束的层析成像技术可直接获取焊接区域的深度结构信息。X 射线成像技术具有强大的穿透能力，可实时观察匙孔内部形态与熔池流动，是研究激光深熔焊物理机制的重要手段\upcite{svenungsson2015laser}。然而，X 射线源设备体积庞大、成本高昂，且存在辐射安全隐患，难以在工业产线上大规模部署。光学相干层析成像（OCT）作为另一种主动探测技术，如第 1.1 节所述，具有微米级轴向分辨率、非接触、可穿透焊接烟尘与金属蒸汽等特点，近年来受到学术界与工业界的广泛关注\upcite{HuangYiwei_OCT_WeldDepth,BOLEY201956,mittelstadt2019novel}。OCT 可通过测量光束直接获取匙孔底部的反射信息，从而为熔深在线测量提供直接的几何依据\upcite{谢冠明2023基于光学相干层析的激光焊接熔深监测方法,s23115223}。Kogel-Höllinger 等\upcite{Kogel2025Keyhole_OCT}在 2025 年的工作中进一步利用 OCT 对激光焊接中的匙孔形态进行在线监测，验证了 OCT 在揭示匙孔轮廓快速变化与失稳模式方面的能力。
 
 （5）多传感器融合监测方法。单一传感器往往难以全面表征复杂的焊接过程，因此多传感器融合监测成为近年来的研究热点。通过综合利用光电信号、热成像、可见光图像与声发射信号等多源信息，并借助机器学习算法进行特征融合与决策，可以实现更全面、更可靠的焊接质量评估与缺陷检测\upcite{stavridis2018quality}。然而，多传感器融合系统存在成本高、集成复杂、实时性受限等问题，且不同传感器之间的时空配准与信息融合算法仍是研究难点。
 
@@ -58,18 +58,19 @@
 
 \begin{table}[htbp]
 \centering
+\renewcommand\arraystretch{1.5}
 \caption{激光焊接过程光学检测技术对比}
 \label{tab:detection-comparison}
-\begin{tabular}{cccc}
+\begin{tabular}{>{\centering\arraybackslash}p{2.2cm}>{\centering\arraybackslash}p{2.6cm}>{\centering\arraybackslash}p{3.4cm}>{\centering\arraybackslash}p{3.6cm}}
 \toprule
 检测技术 & 检测对象 & 优点 & 局限性 \\
 \midrule
-高温计 & 匙孔/熔池温度 & 结构简单、响应快 & 无空间分辨信息 \\
+高温计 & 匙孔/熔池温度 & 结构简单、响应快 & 仅单点测量、无空间分辨信息 \\
 光电传感器 & 辐射/反射光强 & 采样率高、成本低 & 需复杂参数标定 \\
 光谱仪 & 等离子体成分 & 可诊断元素信息 & 信号解释复杂 \\
 红外热像仪 & 温度场分布 & 直观呈现温度场 & 分辨率低、成本高 \\
-可见光相机 & 熔池/匙孔形态 & 分辨率高、信息丰富 & 仅表面二维信息 \\
-X 射线成像 & 匙孔内部结构 & 穿透力强 & 辐射危害、成本高 \\
+可见光相机 & 熔池/匙孔形态 & 分辨率高、信息丰富 & 仅获取表面二维信息 \\
+X 射线成像 & 匙孔内部结构 & 穿透力强 & 辐射危害、设备昂贵 \\
 OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 \bottomrule
 \end{tabular}
@@ -86,7 +87,7 @@ OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 
 （2）硬件或多帧复合策略。从系统层面，研究者提出了多种基于硬件或采集策略的散斑抑制方法。多帧复合技术通过对同一位置采集多帧图像并进行平均或复合，利用散斑的随机性实现噪声平滑；角度复合技术通过多角度采集来降低散斑相关性；频率复合技术则利用宽带光源的不同频率成分进行复合\upcite{ZengHaitao_OCT_Speckle}。这些方法可有效提升图像信噪比，但往往以牺牲成像速度或增加系统复杂度为代价，难以满足激光焊接过程监测对实时性的严格要求。
 
-（3）基于深度学习的去噪方法。近年来，深度学习技术在图像去噪领域取得了突破性进展。研究者将卷积神经网络（Convolutional Neural Network, CNN）、残差学习、自编码器（Autoencoder）、生成对抗网络（Generative Adversarial Network, GAN）等技术应用于 OCT 图像去噪，通过在大量数据上学习噪声分布与结构特征的映射关系，实现端到端的噪声去除与细节恢复。相比传统方法，深度学习去噪方法在处理复杂噪声分布与保持结构细节方面展现出更强的能力。然而，这些方法通常需要大量配对的噪声/清洁图像进行监督训练，而在实际工业场景中获取高质量的"真实干净"标签往往十分困难。
+（3）基于深度学习的去噪方法。近年来，深度学习技术在图像去噪领域取得了突破性进展。研究者将卷积神经网络（Convolutional Neural Network, CNN）、残差学习、自编码器（Autoencoder）、生成对抗网络（Generative Adversarial Network, GAN）等技术应用于 OCT 图像去噪，通过在大量数据上学习噪声分布与结构特征的映射关系，实现端到端的噪声去除与细节恢复。相比传统方法，深度学习去噪方法在处理复杂噪声分布与保持结构细节方面展现出更强的能力。针对配对训练数据获取困难的痛点，Liu 等\upcite{Liu2025PSF_OCT}在 2025 年提出基于点扩散函数先验的自监督深度学习方法，无需配对干净/含噪图像即可完成实时 OCT 去卷积去噪，进一步降低了对标签数据的依赖。然而，这些方法通常需要大量配对的噪声/清洁图像进行监督训练，而在实际工业场景中获取高质量的"真实干净"标签往往十分困难。
 
 上述去噪方法为改善 OCT 图像的可视化质量与测量精度提供了有效途径。然而，在激光焊接 OCT 匙孔分割这一特定任务中，存在以下制约：匙孔区域呈弱边界、细长深孔、形态快速变化等特点，单纯去噪可能导致边界过度平滑或几何形变；"先去噪再分割"的两阶段流程增加了系统复杂度，去噪阶段的误差也可能传播至后续分割环节。
 
@@ -97,7 +98,7 @@ OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 
 （1）基于全卷积网络的端到端分割。Long 等\upcite{Long2015FCN}提出全卷积网络（Fully Convolutional Network, FCN），首次将图像分类网络改造为逐像素预测结构，奠定了深度语义分割的基础。在此基础上，SegNet\upcite{badrinarayanan2017segnet}采用对称的编码器-解码器架构，通过最大池化索引进行上采样，在保持空间信息的同时降低了参数量；U-Net\upcite{Ronneberger2015UNet}引入跳跃连接融合多尺度特征，在医学影像分割中取得优异效果。
 
-（2）多尺度上下文建模方法。为捕获不同感受野范围的上下文信息，Yu 等\upcite{yu2015multi}提出空洞卷积（Dilated/Atrous Convolution），在不增加参数的情况下扩大感受野；DeepLab 系列\upcite{Chen2014DeepLabV1,Chen2016DeepLabV2,Chen2017DeepLabV3,Chen2018DeepLab}通过空洞空间金字塔池化（ASPP）融合多尺度特征，DeepLabV3+ 进一步结合编码器-解码器结构，在精度与效率间取得平衡；PSPNet\upcite{zhao2017pyramid}则采用金字塔池化模块聚合全局上下文。高分辨率网络 HRNet\upcite{wang2020deep}在整个网络中保持高分辨率表示，有效提升了边界与细节刻画能力。
+（2）多尺度上下文建模方法。为捕获不同感受野范围的上下文信息，Yu 等\upcite{yu2015multi}提出空洞卷积（Dilated/Atrous Convolution），在不增加参数的情况下扩大感受野；DeepLab 系列\upcite{Chen2014DeepLabV1,Chen2016DeepLabV2,Chen2017DeepLabV3,Chen2018DeepLab}通过空洞空间金字塔池化（ASPP）融合多尺度特征，DeepLabV3+ 进一步结合编码器-解码器结构，在精度与效率间取得平衡。在工业缺陷分割等垂直场景中，DeepLabV3+ 仍是 2025 年的主流改进基线之一：Wang 等\upcite{Wang2025SME_DeepLab}提出的 SME-DeepLabV3+ 在主干、局部注意力与多尺度注意力三个方向同时改造 DeepLabV3+，在钢表面缺陷数据集上取得了显著提升，与本文从编码端与解码端双向改进的思路同源。PSPNet\upcite{zhao2017pyramid}则采用金字塔池化模块聚合全局上下文。高分辨率网络 HRNet\upcite{wang2020deep}在整个网络中保持高分辨率表示，有效提升了边界与细节刻画能力。
 
 （3）注意力机制与 Transformer 方法。为建模长程依赖与突出关键区域特征，注意力机制被广泛引入分割任务。挤压激励（Squeeze-and-Excitation, SE）模块\upcite{hu2019squeezeandexcitationnetworks}通过通道注意力重校准特征响应；卷积块注意力模块（Convolutional Block Attention Module, CBAM）\upcite{woo2018cbam}结合通道与空间注意力实现双维度特征增强；Non-local\upcite{wang2018non}通过自注意力机制捕获像素间的全局依赖关系；DANet\upcite{fu2019danet}同时建模位置注意力与通道注意力以捕获全局依赖；CCNet\upcite{huang2020ccnet}通过十字交叉注意力降低计算复杂度；ECA-Net\upcite{wang2020ecanet}提出高效通道注意力模块以实现轻量化设计；Coordinate Attention\upcite{hou2021coordinateattentionefficientmobile}在轻量化约束下嵌入位置信息以增强空间感知能力。近年来，Vision Transformer\upcite{dosovitskiy2020imageworth16x16words}被引入视觉任务，Swin Transformer\upcite{liu2021swin}通过移动窗口机制实现高效的层次化视觉表示；SETR\upcite{zheng2021setr}首次将纯 Transformer 架构用于语义分割；SegFormer\upcite{xie2021segformer}设计了高效的 Transformer 分割架构；Mask2Former\upcite{cheng2022mask2former}通过掩码注意力实现通用图像分割；TransUNet\upcite{TransUNet2021}等混合架构将 Transformer 与 CNN 结合，在医学影像分割中展现出优异的全局建模能力。
 
@@ -109,7 +110,7 @@ OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 
 OCT 系统的采集速率持续提升——扫频 OCT 的 A 扫速率已从早期的几十 kHz 发展到 MHz 量级，谱域 OCT 也普遍达到 80--130 kHz\upcite{ZengHaitao_OCT_Speckle}。然而，从原始干涉谱到可显示深度图像的后处理流程（包括去直流、光谱整形、K 线性化插值、色差补偿、快速傅里叶变换（Fast Fourier Transform, FFT）及幅值提取等步骤）计算量大，CPU 串行处理的速度远跟不上采集速率，成为制约在线成像的瓶颈。
 
-GPU 并行计算为解决这一矛盾提供了途径。Zhang 等人在 FX5800 GPU 上实现了 100k A-line/s 的谱域 OCT 处理速度\upcite{Zhang2010GPU_OCT}；Rasakanthan 等人利用 GPU 页锁定内存优化数据传输，在 A 扫长度 1024 的条件下达到 524k A-line/s\upcite{Rasakanthan2011GPU}；Lyu 等人通过双 CUDA（Compute Unified Device Architecture）流减少传输等待，实现了 1024$\times$1024 帧大小下 200 fps 的 B 扫实时处理\upcite{Lyu2022GPU}。周金浩在 RTX2060 平台上设计了一体化的扫频 OCT（Swept Source OCT, SS-OCT）重建软件，对 1280$\times$1024$\times$1024 的三维谱域数据完成从采集到体绘制的全流程处理，耗时约 1.2 s，折合约 800k A-line/s\upcite{ZhouJinhao2024GPU_OCT}。
+GPU 并行计算为解决这一矛盾提供了途径。Zhang 等人在 FX5800 GPU 上实现了 100k A-line/s 的谱域 OCT 处理速度\upcite{Zhang2010GPU_OCT}；Rasakanthan 等人利用 GPU 页锁定内存优化数据传输，在 A 扫长度 1024 的条件下达到 524k A-line/s\upcite{Rasakanthan2011GPU}；Lyu 等人通过双 CUDA（Compute Unified Device Architecture）流减少传输等待，实现了 1024$\times$1024 帧大小下 200 fps 的 B 扫实时处理\upcite{Lyu2022GPU}。周金浩在 RTX2060 平台上设计了一体化的扫频 OCT（Swept Source OCT, SS-OCT）重建软件，对 1280$\times$1024$\times$1024 的三维谱域数据完成从采集到体绘制的全流程处理，耗时约 1.2 s，折合约 800k A-line/s\upcite{ZhouJinhao2024GPU_OCT}。除桌面级 GPU 外，OCT 实时处理近年来开始向嵌入式/边缘端延伸：Chen 等\upcite{Chen2025JetsonOCT}在 2025 年的工作中以 NVIDIA Jetson Orin Nano 为计算平台，在 12~W 功耗约束下仍实现了超过 500~kHz 的 A-line 实时处理，为低成本、低功耗工业 OCT 部署提供了新的硬件路径。
 
 在激光焊接 OCT 监测领域，GPU 加速面临与医学 OCT 不同的约束。焊接闭环控制要求毫秒级反馈频率，往往需要将单次处理的 B 扫宽度（A 扫条数）缩小以降低端到端延迟。赵金汉的研究发现，当 B 扫宽度从 1000 降至 100 时，内核启动、显式内存拷贝和全局同步等固定开销的占比急剧上升，实际吞吐量未能线性增长。为此，赵金汉提出了基于 CUDA 统一内存的优化方案，消除主机与设备间的显式拷贝，配合事件驱动的轻量级同步，使 OCT 的 A 扫采集频率从 50 kHz 提升至 90 kHz\upcite{ZhaoJinhan2025Weld_OCT}。
 
