@@ -1,12 +1,14 @@
 \NeedsTeXFormat{LaTeX2e}[2007/10/19]
 \ProvidesClass{szu-master}
 [2024/04/01 v1 Thesis Template for SZU Postgraduate]
-\LoadClass[cs4size,12pt,a4paper,fntef,UTF8]{ctexart}[2024/4/1]
+\LoadClass[fontset=none,cs4size,12pt,a4paper,fntef,UTF8]{ctexart}[2024/4/1]
 % 源代码地址： https://github.com/Ftine/SZU_Latex_Master_Template 
 
 \RequirePackage{amsmath,amsthm,amsfonts,amssymb,bm,times,fancyhdr}
-\RequirePackage{epigraph, titlesec, textcomp, ctex}
+\RequirePackage{epigraph, titlesec, textcomp}
 \RequirePackage{hyperref,caption,titletoc}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric}
 
 \DeclareCaptionFont{wuhao}{\zihao{5}}
 %\DeclareCaptionFont{bfseries}{\bfseries}
@@ -46,10 +48,15 @@
 %全局英文字体
 \setmainfont{Times New Roman}
 %全文字体
-\setCJKmainfont{simsun.ttc}
-%重新定义宋体命令，使用simsun.ttc以支持生僻字
-\setCJKfamilyfont{zhsong}{simsun.ttc}
-\renewcommand{\songti}{\CJKfamily{zhsong}} 
+\setCJKmainfont[BoldFont=songti-Bold.otf]{simsun.ttc}
+%重新定义宋体和黑体命令，使用项目内字体以避免系统字体缺失
+\setCJKsansfont[BoldFont=songti-Bold.otf]{songti-Bold.otf}
+\setCJKfamilyfont{zhsong}[BoldFont=songti-Bold.otf]{simsun.ttc}
+\setCJKfamilyfont{zhhei}[BoldFont=songti-Bold.otf]{songti-Bold.otf}
+\providecommand{\songti}{}
+\providecommand{\heiti}{}
+\renewcommand{\songti}{\CJKfamily{zhsong}}
+\renewcommand{\heiti}{\CJKfamily{zhhei}}
 %设置页眉的横线
 \renewcommand{\headrule}{%
     \hrule width\headwidth height1.5pt % 粗直线
@@ -226,8 +233,8 @@
 
 
 
-\setCJKfamilyfont{sectionfont}{SimHei} % 设置一级和二级标题字体为黑体
-\setCJKfamilyfont{subsectionfont}{SimHei} 
+\setCJKfamilyfont{sectionfont}[BoldFont=songti-Bold.otf]{songti-Bold.otf} % 设置一级和二级标题字体为黑体
+\setCJKfamilyfont{subsectionfont}[BoldFont=songti-Bold.otf]{songti-Bold.otf}
 
 
 

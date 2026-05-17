@@ -16,12 +16,12 @@
 \begin{figure}[htbp]
 \centering
 \subfigure[原始 OCT 图像]{
-    \includegraphics[width=0.85\textwidth]{figure/cp1/fig1-1a_raw.png}
+    \includegraphics[width=0.47\textwidth]{figure/cp1/fig1-1a_raw.png}
     \label{fig:oct-keyhole-raw}
 }
-
+\hfill
 \subfigure[标注图像]{
-    \includegraphics[width=0.85\textwidth]{figure/cp1/fig1-1b_annotated.png}
+    \includegraphics[width=0.47\textwidth]{figure/cp1/fig1-1b_annotated.png}
     \label{fig:oct-keyhole-annotated}
 }
 \caption{激光焊接 OCT 匙孔图像示例}
@@ -110,7 +110,7 @@ OCT & 匙孔深度结构 & 微米分辨率、非接触 & 信号处理复杂 \\
 
 OCT 系统的采集速率持续提升——扫频 OCT 的 A 扫速率已从早期的几十 kHz 发展到 MHz 量级，谱域 OCT 也普遍达到 80--130 kHz\upcite{ZengHaitao_OCT_Speckle}。然而，从原始干涉谱到可显示深度图像的后处理流程（包括去直流、光谱整形、K 线性化插值、色差补偿、快速傅里叶变换（Fast Fourier Transform, FFT）及幅值提取等步骤）计算量大，CPU 串行处理的速度远跟不上采集速率，成为制约在线成像的瓶颈。
 
-GPU 并行计算为解决这一矛盾提供了途径。Zhang 等人在 FX5800 GPU 上实现了 100k A-line/s 的谱域 OCT 处理速度\upcite{Zhang2010GPU_OCT}；Rasakanthan 等人利用 GPU 页锁定内存优化数据传输，在 A 扫长度 1024 的条件下达到 524k A-line/s\upcite{Rasakanthan2011GPU}；Lyu 等人通过双 CUDA（Compute Unified Device Architecture）流减少传输等待，实现了 1024$\times$1024 帧大小下 200 fps 的 B 扫实时处理\upcite{Lyu2022GPU}。周金浩在 RTX2060 平台上设计了一体化的扫频 OCT（Swept Source OCT, SS-OCT）重建软件，对 1280$\times$1024$\times$1024 的三维谱域数据完成从采集到体绘制的全流程处理，耗时约 1.2 s，折合约 800k A-line/s\upcite{ZhouJinhao2024GPU_OCT}。除桌面级 GPU 外，OCT 实时处理近年来开始向嵌入式/边缘端延伸：Wang 等\upcite{Wang2025JetsonOCT}在 2025 年的工作中以 NVIDIA Jetson Orin Nano 为计算平台，在低成本 OCT 系统中实现了实时控制与 GPU 加速图像处理，为低成本、低功耗工业 OCT 部署提供了新的硬件路径。
+GPU 并行计算为解决这一矛盾提供了途径。Zhang 等人在 FX5800 GPU 上实现了 100k A-line/s 的谱域 OCT 处理速度\upcite{Zhang2010GPU_OCT}；Rasakanthan 等人利用 GPU 页锁定内存优化数据传输，在 A 扫长度 1024 的条件下达到 524k A-line/s\upcite{Rasakanthan2011GPU}；Lyu 等人通过双 CUDA 流减少传输等待，实现了 1024$\times$1024 帧大小下 200 fps 的 B 扫实时处理\upcite{Lyu2022GPU}。周金浩在 RTX2060 平台上设计了一体化的扫频 OCT（SS-OCT）重建软件，对 1280$\times$1024$\times$1024 的三维谱域数据完成从采集到体绘制的全流程处理，耗时约 1.2 s，折合约 800k A-line/s\upcite{ZhouJinhao2024GPU_OCT}。除桌面级 GPU 外，OCT 实时处理近年来开始向嵌入式/边缘端延伸：Wang 等\upcite{Wang2025JetsonOCT}在 2025 年的工作中以 NVIDIA Jetson Orin Nano 为计算平台，在低成本 OCT 系统中实现了实时控制与 GPU 加速图像处理，为低成本、低功耗工业 OCT 部署提供了新的硬件路径。
 
 在激光焊接 OCT 监测领域，GPU 加速面临与医学 OCT 不同的约束。焊接闭环控制要求毫秒级反馈频率，往往需要将单次处理的 B 扫宽度（A 扫条数）缩小以降低端到端延迟。赵金汉的研究发现，当 B 扫宽度从 1000 降至 100 时，内核启动、显式内存拷贝和全局同步等固定开销的占比急剧上升，实际吞吐量未能线性增长。为此，赵金汉提出了基于 CUDA 统一内存的优化方案，消除主机与设备间的显式拷贝，配合事件驱动的轻量级同步，使 OCT 的 A 扫采集频率从 50 kHz 提升至 90 kHz\upcite{ZhaoJinhan2025Weld_OCT}。
 
@@ -139,6 +139,35 @@ GPU 并行计算为解决这一矛盾提供了途径。Zhang 等人在 FX5800 GP
 （3）设计基于双重注意力机制的改进 DeepLabV3+ 网络。在编码器端设计 TR（Transformer Routing）全局注意力模块，通过双层路由注意力建立长距离依赖\upcite{zhu2023biformervisiontransformerbilevel}，解决细长结构断裂分割问题；在解码器端设计 SAE（Spatial Awareness Enhancement）空间感知增强模块，通过坐标注意力显式编码空间位置信息\upcite{hou2021coordinateattentionefficientmobile,hu2019squeezeandexcitationnetworks}，提升边界分割精度。两模块形成"编码重结构、解码重细节"的互补架构。同时设计二元交叉熵（Binary Cross-Entropy, BCE）与 Dice 混合损失函数缓解类别不平衡问题。
 
 （4）进行系统的实验验证与对比分析。在自建数据集上与 U-Net\upcite{Ronneberger2015UNet}、DeepLabV3+\upcite{Chen2018DeepLab}、TransUNet\upcite{TransUNet2021}等主流方法对比，通过消融实验验证各模块贡献，结合可视化分析和效率分析评估方法的有效性。
+
+为说明上述研究内容之间的关系，图~\ref{fig:research_route}~给出了本文的整体研究路线。论文首先从激光焊接在线质检需求出发，分析 OCT 重建延迟、散斑噪声和细长匙孔分割三类问题；随后分别开展 CUDA 加速重建、焊接 OCT 数据集构建和改进分割模型设计；最后通过重建速度、分割精度、边界质量、显存占用和散斑鲁棒性实验验证方法有效性。
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    font=\songti\small,
+    node distance=0.8cm and 0.65cm,
+    box/.style={draw, rounded corners=2pt, align=center, minimum height=0.78cm, text width=2.55cm, fill=gray!8},
+    method/.style={box, fill=blue!5},
+    verify/.style={box, fill=green!6},
+    arrow/.style={-{Stealth[length=2mm]}, line width=0.5pt}
+]
+\node[box] (need) {工业在线质检需求\\熔深实时测量};
+\node[box, right=of need] (problem) {关键问题\\重建慢、噪声强\\边界模糊};
+\node[method, right=of problem] (cuda) {CUDA 加速重建\\PCR 样条插值\\统一内存优化};
+\node[method, below=of cuda] (dataset) {焊接 OCT 数据集\\采集、标注\\增强与划分};
+\node[method, left=of dataset] (model) {改进 DeepLabV3+\\TR 全局结构\\SAE 边界细节};
+\node[verify, left=of model] (exp) {实验验证\\速度、精度\\效率与鲁棒性};
+\draw[arrow] (need) -- (problem);
+\draw[arrow] (problem) -- (cuda);
+\draw[arrow] (cuda) -- (dataset);
+\draw[arrow] (dataset) -- (model);
+\draw[arrow] (model) -- (exp);
+\draw[arrow] (exp.north) -- ++(0,0.35) -| (need.south);
+\end{tikzpicture}
+\caption{论文整体研究路线图}
+\label{fig:research_route}
+\end{figure}
 
 \subsection{论文组织结构}
 

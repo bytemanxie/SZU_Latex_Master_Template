@@ -7,7 +7,7 @@
 
 \subsection{OCT成像原理}
 
-光学相干层析成像（Optical Coherence Tomography, OCT）是一种基于低相干干涉原理的高分辨率、非侵入性层析成像技术\upcite{Huang1991OCT}。该技术最早由 Huang 等人于 1991 年提出\upcite{Huang1991OCT}，通过检测参考光束与样品后向散射光之间的干涉信息，实现对生物组织或材料结构的微米级断层成像。OCT 技术无需外源造影剂或样品切片处理，即可实现高分辨率实时成像，在生物医学和工业检测领域均有应用\upcite{ZengHaitao_OCT_Speckle}。
+OCT 是一种基于低相干干涉原理的高分辨率、非侵入性层析成像技术\upcite{Huang1991OCT}。该技术最早由 Huang 等人于 1991 年提出\upcite{Huang1991OCT}，通过检测参考光束与样品后向散射光之间的干涉信息，实现对生物组织或材料结构的微米级断层成像。OCT 技术无需外源造影剂或样品切片处理，即可实现高分辨率实时成像，在生物医学和工业检测领域均有应用\upcite{ZengHaitao_OCT_Speckle}。
 
 \subsubsection{OCT成像基本原理}
 
@@ -36,11 +36,11 @@ I_D(k) \approx |E_R|^2 + |E_S|^2 + 2r_R r_S S(k) \cos[2k(z_R - z_S)]
 
 \subsubsection{OCT技术分类}
 
-根据不同的成像原理和数据采集方式，OCT 技术主要分为时域 OCT（Time Domain OCT, TD-OCT）和频域 OCT（Fourier Domain OCT, FD-OCT）两大类\upcite{ZengHaitao_OCT_Speckle,muller2007time}。
+根据不同的成像原理和数据采集方式，OCT 技术主要分为时域 OCT（TD-OCT）和频域 OCT（FD-OCT）两大类\upcite{ZengHaitao_OCT_Speckle,muller2007time}。
 
 时域 OCT 是最早提出的 OCT 技术，通过机械扫描参考臂的延时调制，逐点扫描获得不同深度处的反射信号。时域 OCT 的成像过程包括两个步骤：一是通过参考臂的移动实现深度扫描，从干涉信号中提取样品的深度结构；二是结合横向扫描，构建二维或三维层析图像。时域 OCT 通过调节参考臂的扫描范围来灵活设定测量深度，但由于其深度信息依赖机械扫描，导致扫描时间较长、成像速度较慢，并容易受到扫描噪声干扰\upcite{ZengHaitao_OCT_Speckle}。
 
-频域 OCT 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（Spectral Domain OCT, SD-OCT）和扫频 OCT（Swept Source OCT, SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
+频域 OCT 通过获取完整的光谱干涉信号，并利用傅里叶变换重建深度信息，避免了机械扫描的需求，提高了成像速度。频域 OCT 根据光源和探测方式的差异，又可分为谱域 OCT（SD-OCT）和扫频 OCT（SS-OCT）。谱域 OCT 使用宽带光源和光谱仪，在空间域中分离干涉光并获取干涉光谱；扫频 OCT 采用宽带扫频光源和高速光电探测器，通过扫频光源在时间域内依次发射不同波长的光，并利用光电探测器在时间域中分离干涉光谱。相比谱域 OCT，扫频 OCT 在信噪比、探测灵敏度和系统分辨率方面具有更高的潜力，尤其适用于高分辨率和大视场成像\upcite{HuangYiwei_OCT_WeldDepth}。
 
 \subsubsection{OCT在激光焊接中的应用}
 
@@ -60,7 +60,7 @@ OCT 成像基于低相干干涉原理，散斑噪声是相干成像系统固有�
 
 \subsubsection{编程模型}
 
-CUDA（Compute Unified Device Architecture）是 NVIDIA 提供的面向 GPU 的并行计算编程框架。在 CUDA 编程模型中，CPU（主机端）负责程序流程控制和数据准备，GPU（设备端）负责大规模并行计算。主机端通过 PCIe 总线向设备端传输数据，并启动核函数（Kernel）在 GPU 上执行。核函数由大量线程并行执行，每个线程独立处理一份数据。
+CUDA 是 NVIDIA 提供的面向 GPU 的并行计算编程框架。在 CUDA 编程模型中，CPU 负责程序流程控制和数据准备，GPU 负责大规模并行计算。主机端通过 PCIe 总线向设备端传输数据，并启动核函数（Kernel）在 GPU 上执行。核函数由大量线程并行执行，每个线程独立处理一份数据。
 
 一次典型的 GPU 计算流程包括：在设备端分配显存（cudaMalloc）、将输入数据从主机内存拷贝到显存（cudaMemcpy，Host to Device）、启动核函数执行并行计算、将计算结果从显存拷回主机内存（cudaMemcpy，Device to Host）、释放显存（cudaFree）。
 
@@ -96,7 +96,7 @@ GPU 提供了多级存储层次，从快到慢依次为寄存器、共享内存�
 
 \subsection{深度学习基础}
 
-深度学习作为机器学习的重要分支，通过构建具有多个隐藏层的神经网络，能够自动学习数据的层次化特征表示\upcite{alom2018alexnetsurvey}。在图像处理领域，卷积神经网络（Convolutional Neural Network, CNN）凭借其强大的特征提取能力，已成为语义分割等视觉任务的主流方法。本节介绍深度学习的基础理论，包括卷积神经网络、编码器-解码器架构以及注意力机制等核心概念。
+深度学习作为机器学习的重要分支，通过构建具有多个隐藏层的神经网络，能够自动学习数据的层次化特征表示\upcite{alom2018alexnetsurvey}。在图像处理领域，卷积神经网络（CNN）凭借其特征提取能力，已成为语义分割等视觉任务的主流方法。本节介绍卷积网络、编码器-解码器架构和注意力机制中与本文模型设计直接相关的概念。
 
 \subsubsection{卷积神经网络基础}
 
@@ -107,27 +107,13 @@ GPU 提供了多级存储层次，从快到慢依次为寄存器、共享内存�
 Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot K_{m,n,c} + b
 \label{eq:convolution}
 \end{equation}
-其中，$Y_{i,j}$ 为输出特征图在位置 $(i,j)$ 的值，$b$ 为偏置项。卷积操作具有局部连接和权值共享的特性，能够有效提取图像的局部特征（如边缘、纹理等），同时大幅减少参数量。如图~\ref{fig:conv_operation}~所示，卷积核在输入特征图上滑动，计算每个局部区域的加权和，生成输出特征图。
+其中，$Y_{i,j}$ 为输出特征图在位置 $(i,j)$ 的值，$b$ 为偏置项。式~(\ref{eq:convolution})~中的三重求和分别对应卷积核的高度、宽度和通道维度，说明每个输出像素由邻域内多通道信息共同决定。在本文任务中，该操作主要用于提取 OCT 图像中的局部灰度突变、散斑纹理和熔深边界响应；后续的注意力模块再在此基础上补充长距离结构关系。卷积操作具有局部连接和权值共享的特性，能够提取边缘、纹理等局部特征，同时减少参数量。
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.7\textwidth]{figure/cp2/fig2-1_conv_operation.png}
-\caption{卷积运算示意图\upcite{Song2023ConvColor}}
-\label{fig:conv_operation}
-\end{figure}
-
-（2）池化层：池化层通过下采样操作降低特征图的空间分辨率，减少计算量并增强特征的平移不变性。常用的池化操作包括最大池化（Max Pooling）和平均池化（Average Pooling），如图~\ref{fig:pooling_operation}~所示。最大池化选择局部区域内的最大值，能够保留显著特征；平均池化计算局部区域的平均值，能够平滑特征响应。
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.7\textwidth]{figure/cp2/fig2-2_pooling_operation.png}
-\caption{池化运算示意图\upcite{Yani2019TransferLearning}}
-\label{fig:pooling_operation}
-\end{figure}
+（2）池化层：池化层通过下采样操作降低特征图的空间分辨率，减少计算量并增强特征的平移不变性。常用的池化操作包括最大池化（Max Pooling）和平均池化（Average Pooling）。最大池化选择局部区域内的最大值，能够保留显著特征；平均池化计算局部区域的平均值，能够平滑特征响应。对于焊接 OCT 图像，过强的下采样可能削弱细长边界，因此本文在第四章通过解码端的 SAE 模块补偿空间细节。
 
 （3）激活函数：激活函数为网络引入非线性，使网络能够学习复杂的非线性映射关系。常用的激活函数包括：\ding{172}~ReLU（Rectified Linear Unit），$f(x) = \max(0, x)$，具有计算简单、梯度稳定等优点，是目前最常用的激活函数；\ding{173}~Sigmoid，$f(x) = \frac{1}{1+e^{-x}}$，输出范围在 $(0,1)$ 之间，常用于二分类任务的输出层；\ding{174}~Softmax，$f(x_i) = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$，将输入向量归一化为概率分布，常用于多分类任务的输出层。
 
-（4）批归一化：批归一化（Batch Normalization, BN）通过在训练过程中对每个批次的数据进行归一化，能够加速网络训练、提高模型稳定性并允许使用更大的学习率\upcite{ioffe2015batchnormalizationacceleratingdeep}。批归一化的操作可表示为：
+（4）批归一化（BN）：批归一化通过在训练过程中对每个批次的数据进行归一化，能够加速网络训练、提高模型稳定性并允许使用更大的学习率\upcite{ioffe2015batchnormalizationacceleratingdeep}。批归一化的操作可表示为：
 \begin{equation}
 \hat{x}_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}}, \quad y_i = \gamma \hat{x}_i + \beta
 \label{eq:batch_norm}
@@ -178,27 +164,13 @@ Y_{i,j} = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} \sum_{c=0}^{C-1} X_{i+m,j+n,c} \cdot
 
 全卷积网络（Fully Convolutional Networks, FCN）是首个将深度卷积神经网络成功应用于语义分割任务的方法\upcite{Long2015FCN}。FCN 的核心思想是将传统 CNN 中的全连接层替换为卷积层，使得网络能够接受任意尺寸的输入图像，并输出与输入尺寸相同的分割结果。
 
-FCN 通过将预训练的分类网络（如 VGG、ResNet）转换为全卷积结构，利用卷积层的平移不变性，实现了端到端的像素级预测。FCN 还引入了跳跃连接机制，通过融合不同尺度的特征图，结合浅层的细节信息和深层的语义信息，提升了分割精度。FCN 的网络结构如图~\ref{fig:fcn_structure}~所示，其提出标志着深度学习在语义分割领域的成功应用，为后续研究奠定了基础\upcite{Long2015FCN}。
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{figure/cp2/fig2-3_fcn_structure.png}
-\caption{FCN网络结构图\upcite{Long2015FCN}}
-\label{fig:fcn_structure}
-\end{figure}
+FCN 通过将预训练的分类网络（如 VGG、ResNet）转换为全卷积结构，利用卷积层的平移不变性，实现了端到端的像素级预测。FCN 还引入跳跃连接机制，融合不同尺度的特征图，将浅层细节信息和深层语义信息结合起来，为后续 U-Net、DeepLab 等结构提供了基础\upcite{Long2015FCN}。
 
 \subsubsection{U-Net 架构}
 
 U-Net 是一种经典的编码器-解码器架构，最初设计用于医学图像分割任务\upcite{Ronneberger2015UNet}。U-Net 采用对称的 U 形结构，编码器通过卷积和下采样逐步提取特征，解码器通过上采样和卷积逐步恢复分辨率。
 
-U-Net 的关键创新在于其密集的跳跃连接设计：编码器每一层的特征图都与解码器对应层的特征图进行拼接，使得解码器能够充分利用编码器提取的多尺度特征。这种设计使得 U-Net 在保持高分辨率细节的同时，能够利用深层的语义信息，在医学图像分割等需要精确边界定位的任务中表现出色。U-Net 的网络结构如图~\ref{fig:unet_structure}~所示，其成功也启发了后续许多编码器-解码器架构的设计\upcite{Ronneberger2015UNet}。
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{figure/cp2/fig2-4_unet_structure.png}
-\caption{U-Net网络结构图\upcite{Ronneberger2015UNet}}
-\label{fig:unet_structure}
-\end{figure}
+U-Net 的关键创新在于密集的跳跃连接设计：编码器每一层的特征图都与解码器对应层的特征图进行拼接，使得解码器能够充分利用多尺度特征。这种设计在保持高分辨率细节的同时引入深层语义信息，适合医学图像等需要精确边界定位的任务，也启发了后续许多编码器-解码器架构\upcite{Ronneberger2015UNet}。
 
 \subsubsection{U-Net 变体网络}
 
@@ -219,7 +191,7 @@ y[i] = \sum_{k} x[i + r \cdot k] \cdot w[k]
 \end{equation}
 其中，$r$ 为空洞率（dilation rate），控制感受野的大小。当 $r=1$ 时，空洞卷积退化为标准卷积；当 $r>1$ 时，空洞卷积能够在不增加参数量的情况下扩大感受野。
 
-（2）DeepLabV2：DeepLabV2 在 DeepLabV1 的基础上引入了空间金字塔池化（Atrous Spatial Pyramid Pooling, ASPP）模块\upcite{Chen2016DeepLabV2}。ASPP 模块通过并行使用多个不同空洞率的空洞卷积，在不同尺度上捕获上下文信息，然后将多尺度特征进行融合。ASPP 模块的设计使得网络能够同时关注局部细节和全局上下文，提升了分割性能。
+（2）DeepLabV2：DeepLabV2 在 DeepLabV1 的基础上引入了 ASPP 模块\upcite{Chen2016DeepLabV2}。ASPP 模块通过并行使用多个不同空洞率的空洞卷积，在不同尺度上捕获上下文信息，然后将多尺度特征进行融合。该模块能够同时关注局部细节和全局上下文，提升了分割性能。
 
 （3）DeepLabV3：DeepLabV3 对 ASPP 模块进行了改进，引入了全局平均池化分支，并优化了空洞率的选择策略\upcite{Chen2017DeepLabV3}。改进后的 ASPP 模块包含多个并行分支：不同空洞率的空洞卷积分支用于捕获多尺度上下文信息，全局平均池化分支用于捕获全局上下文信息。这些分支的特征经过拼接和融合，形成丰富的多尺度特征表示。
 
@@ -281,7 +253,7 @@ TransUNet & Transformer + CNN 混合 & 长距离依赖建模 & 计算复杂度�
 
 原始 OCT 图像存在噪声干扰、对比度不足等问题，需要进行预处理以提升图像质量。本研究采用的预处理流程主要包括以下步骤：
 
-（1）图像裁剪：原始 OCT 图像包含较大的无效区域，为减少计算量并突出感兴趣区域（Region of Interest, ROI），首先对图像进行裁剪，去除边缘的无效信息，保留包含熔深信号的核心区域。
+（1）图像裁剪：原始 OCT 图像包含较大的无效区域，为减少计算量并突出感兴趣区域（ROI），首先对图像进行裁剪，去除边缘的无效信息，保留包含熔深信号的核心区域。
 
 （2）噪声抑制：OCT 图像中存在散斑噪声等干扰，本研究采用中值滤波方法进行去噪处理。中值滤波能够在保留边缘信息的同时有效抑制椒盐噪声和散斑噪声，滤波窗口大小设置为 $3 \times 3$。
 
@@ -509,14 +481,8 @@ H(A, B) = \max\!\left(\sup_{a \in A} \inf_{b \in B} \|a - b\|,\; \sup_{b \in B} 
 
 \subsection{本章小结}
 
-本章介绍了本文研究所需的理论与技术基础。
+本章围绕后续方法设计所需的理论与技术基础展开。首先介绍 OCT 的低相干干涉成像机制、时域 OCT 与频域 OCT 的工作方式，以及 OCT 在激光焊接匙孔检测中的应用。结合焊接 OCT 图像散斑噪声强、对比度低、边界模糊等特点，明确了后续重建加速与语义分割方法需要解决的主要问题。
 
-在 OCT 成像方面，介绍了低相干干涉原理、时域 OCT 与频域 OCT 的工作机制，以及 OCT 在激光焊接匙孔检测中的应用。OCT 图像存在散斑噪声强、对比度低、边界模糊等特点，为后续章节的算法设计提供了问题背景。
+随后，本章梳理了 GPU 并行计算和深度学习语义分割的相关基础。CUDA 的主机-设备异构架构、线程块-网格组织方式和多级存储层次，为第三章设计 OCT 后处理并行加速方案提供了实现依据；卷积神经网络、编码器-解码器结构、注意力机制以及 DeepLabV3+ 等内容，则为第四章改进分割模型提供了模型基础。DeepLabV3+ 在 OCT 图像处理中仍存在全局上下文建模不足和边界细节丢失的问题，因此需要进一步引入 TR 模块和 SAE 模块进行针对性增强。
 
-在 GPU 并行计算方面，介绍了 CUDA 编程模型的主机-设备异构架构、线程块-网格的两级线程组织方式，以及寄存器、共享内存、常量内存、全局内存等多级存储层次。这些内容为第三章设计 CUDA 核函数和优化内存访问模式提供了技术基础。
-
-在深度学习与语义分割方面，介绍了卷积神经网络的基本组件、编码器-解码器架构、注意力机制，以及从 FCN 到 DeepLabV3+ 的语义分割方法发展脉络。DeepLabV3+ 作为本文第四章的基线模型，在处理 OCT 图像时仍存在全局上下文建模不足和边界细节丢失的问题，这为 TR 模块和 SAE 模块的设计提供了动机。
-
-此外，本章介绍了焊接 OCT 图像数据集的构建过程（采集、预处理、标注、增强、划分）和语义分割的评价指标体系（mIoU、平均准确率 mAcc、平均 Dice 系数 mDice、边界精度指标 HD95 等），为后续实验评估提供了数据基础和度量标准。
-
-基于本章的理论准备，第三章将设计基于 CUDA 的 OCT 后处理加速方案，第四章将提出基于双重注意力机制的改进分割模型。
+最后，本章说明了焊接 OCT 图像数据集的采集、预处理、标注、增强与划分过程，并给出了 mIoU、mAcc、mDice、HD95 等评价指标。上述内容共同构成后续实验设计和结果分析的基础。

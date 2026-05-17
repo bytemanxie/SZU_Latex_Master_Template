@@ -3,7 +3,7 @@
 \section{基于双重注意力机制的 OCT 图像语义分割方法}
 \markboth{第四章\hspace{1em}基于双重注意力机制的 OCT 图像语义分割方法}{}
 
-OCT 图像存在散斑噪声强、对比度低、边界模糊等特点，给熔深区域的自动化提取带来困难。本章以 DeepLabV3+ 为基线模型，针对 ASPP 模块全局上下文建模不足和解码器边界定位不精确两个问题，分别在编码器端和解码器端引入 TR（Transformer Routing）全局注意力模块和 SAE（Spatial Awareness Enhancement）空间感知增强模块，通过消融实验和对比实验验证所提方法的有效性。
+OCT 图像存在散斑噪声强、对比度低、边界模糊等特点，给熔深区域的自动化提取带来困难。本章以 DeepLabV3+ 为基线模型，针对 ASPP 模块全局上下文建模不足和解码器边界定位不精确两个问题，分别在编码器端和解码器端引入 TR 全局注意力模块和 SAE 空间感知增强模块，通过消融实验和对比实验验证所提方法的有效性。
 
 \subsection{DeepLabV3+ 基线模型}
 
@@ -29,7 +29,7 @@ DeepLabV3+ 由 Google 团队于 2018 年提出\upcite{Chen2018DeepLab}，结合�
 
 \subsubsection{ASPP 模块}
 
-ASPP（Atrous Spatial Pyramid Pooling）模块通过多个不同空洞率的并行分支捕获多尺度上下文信息\upcite{Chen2017DeepLabV3}，结构如图~\ref{fig:aspp_module}~所示。
+ASPP 模块通过多个不同空洞率的并行分支捕获多尺度上下文信息\upcite{Chen2017DeepLabV3}，结构如图~\ref{fig:aspp_module}~所示。
 
 \begin{figure}[htbp]
 \centering
@@ -48,32 +48,33 @@ ASPP（Atrous Spatial Pyramid Pooling）模块通过多个不同空洞率的并�
 
 \subsection{TR 全局注意力模块设计}
 
-\subsubsection{改进动机}
-
 ASPP 模块的感受野受限于空洞卷积的局部性，仅覆盖特征图的局部区域。而 OCT 图像中的熔深区域呈现细长结构（纵横比可达 1:10 以上），跨越图像多个区域，需要网络理解整个图像的空间关系才能准确分割。ASPP 的局部感受野可能导致细长结构的断裂或误分割。
 
 表~\ref{tab:oct_module_relation}~总结了 OCT 图像特点与本文模块设计的对应关系。
 
 \begin{table}[htbp]
 \centering
-\caption{OCT图像特点与模块设计的对应关系}
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand\arraystretch{1.25}
+\caption{OCT 图像问题与模块设计关系}
 \label{tab:oct_module_relation}
-\begin{tabular}{p{2.5cm}p{4.5cm}p{4.5cm}}
+\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}p{2.25cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
 \toprule
-\textbf{OCT图像特点} & \textbf{对分割任务的影响} & \textbf{本文解决方案} \\
+\textbf{图像问题} & \textbf{对分割的影响} & \textbf{对应设计} \\
 \midrule
-散斑噪声强 & 局部特征不稳定，影响边界识别 & TR模块的区域级路由在窗口平均后计算相似度，抑制局部噪声干扰 \\
+散斑噪声强 & 局部灰度起伏大，边界响应容易被噪声淹没。 & TR 的区域级路由先做窗口平均，再计算相似度，降低局部随机颗粒对路由决策的影响。 \\
 \midrule
-目标细长 & 纵横比高，跨越多区域，易断裂 & TR模块的长程依赖建模使网络理解细长结构的整体连续性 \\
+目标细长 & 熔深区域跨越多个局部窗口，纯卷积容易出现断裂。 & TR 建立远距离区域联系，使网络关注匙孔结构的整体连续性。 \\
 \midrule
-边界模糊 & 对比度低，边界定位困难 & SAE模块的坐标注意力显式编码空间位置，增强边界特征响应 \\
+边界模糊 & 前景与背景对比度低，解码时轮廓容易偏移。 & SAE 用坐标注意力保留水平、垂直位置信息，增强边界相关通道。 \\
 \midrule
-类别不平衡 & 背景占比90\%以上，前景学习不充分 & BCE+Dice混合损失函数 \\
+类别不平衡 & 背景像素占比高，单一交叉熵容易忽略前景。 & BCE+Dice 混合损失同时约束像素分类和区域重叠。 \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-\subsubsection{TR 模块的整体结构}
+\subsubsection{整体结构}
 
 TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，采用 Transformer Block 架构，整体结构如图~\ref{fig:tr_module}~所示。模块接收 ASPP 的拼接输出特征图，经以下三个子模块依次处理：
 
@@ -84,9 +85,9 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 \label{fig:tr_module}
 \end{figure}
 
-（1）卷积位置编码（Convolutional Position Encoding, CPE）。使用 $3 \times 3$ 深度可分离卷积为特征图注入隐式位置信息，输出与输入相加，使模型在不依赖固定位置编码的情况下感知空间位置。
+（1）卷积位置编码（CPE）。使用 $3 \times 3$ 深度可分离卷积为特征图注入隐式位置信息，输出与输入相加，使模型在不依赖固定位置编码的情况下感知空间位置。
 
-（2）双层路由注意力（Bi-level Routing Attention, BRA）。对 LayerNorm 归一化后的特征执行双层路由稀疏注意力（详见下文），输出通过残差连接与输入相加。
+（2）双层路由注意力（BRA）。对 LayerNorm 归一化后的特征执行双层路由稀疏注意力（详见下文），输出通过残差连接与输入相加。
 
 （3）前馈网络（Feed-Forward Network, FFN）。对 LayerNorm 归一化后的特征依次通过线性层（升维 4 倍）、深度可分离卷积、GELU 激活和线性层（降维），输出同样通过残差连接。深度可分离卷积的引入使 FFN 在通道混合的同时保留局部空间信息。
 
@@ -100,7 +101,7 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 
 \subsubsection{双层路由注意力机制}
 
-双层路由注意力（Bi-Level Routing Attention, BRA）是 TR 模块的核心计算单元，通过区域级路由和 TopK 选择机制，仅对最相关的窗口进行注意力计算，将计算复杂度从全局注意力的 $O(n^2)$ 降低到 $O(n^2 \times k/p^2)$。其工作流程如图~\ref{fig:bilevel_attention}~所示，包含以下四个步骤。
+双层路由注意力（BRA）是 TR 模块的核心计算单元，通过区域级路由和 TopK 选择机制，仅对最相关的窗口进行注意力计算，将计算复杂度从全局注意力的 $O(n^2)$ 降低到 $O(n^2 \times k/p^2)$。其工作流程如图~\ref{fig:bilevel_attention}~所示，包含以下四个步骤。
 
 \begin{figure}[htbp]
 \centering
@@ -109,7 +110,7 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 \label{fig:bilevel_attention}
 \end{figure}
 
-\textbf{步骤一，QKV 投影与窗口划分。}输入特征图通过线性层投影为查询 $\mathbf{Q}$、键 $\mathbf{K}$ 和值 $\mathbf{V}$，然后按 $n_{\text{win}} \times n_{\text{win}}$ 的网格划分为 $p^2$ 个窗口，每个窗口包含 $w \times w$ 个像素。同时，值 $\mathbf{V}$ 经过一个 $5 \times 5$ 深度可分离卷积生成局部上下文增强（Local Context Enhancement, LCE）特征，用于在注意力输出后补充局部细节。
+\textbf{步骤一，QKV 投影与窗口划分。}输入特征图通过线性层投影为查询 $\mathbf{Q}$、键 $\mathbf{K}$ 和值 $\mathbf{V}$，然后按 $n_{\text{win}} \times n_{\text{win}}$ 的网格划分为 $p^2$ 个窗口，每个窗口包含 $w \times w$ 个像素。同时，值 $\mathbf{V}$ 经过一个 $5 \times 5$ 深度可分离卷积生成局部上下文增强（LCE）特征，用于在注意力输出后补充局部细节。
 
 \textbf{步骤二，区域级路由。}对每个窗口内的 $\mathbf{Q}$ 和 $\mathbf{K}$ 分别求空间平均，得到区域级查询和键向量：
 \begin{equation}
@@ -131,7 +132,7 @@ TR 模块受 BiFormer\upcite{zhu2023biformervisiontransformerbilevel} 启发，�
 \end{equation}
 注意力输出与 LCE 特征相加后，经线性投影恢复到原始维度。
 
-\subsubsection{TR 模块与 BiFormer 的差异}
+\subsubsection{与 BiFormer 的差异}
 
 本文的 TR 模块与原始 BiFormer 的主要区别在于嵌入位置和参数选择。BiFormer 作为独立的骨干网络使用，而本文将 TR 模块嵌入 ASPP 输出之后，利用 ASPP 已捕获的多尺度特征作为输入，使注意力机制在多尺度语义信息的基础上建立长程依赖。此外，区域级路由中的窗口平均操作对散斑噪声有天然的平滑作用，使路由决策在 OCT 图像的噪声条件下仍能保持稳定。该平滑作用在本章后续散斑强度鲁棒性实验（表~\ref{tab:robust_speckle}）中已得到量化验证：当散斑方差 $\sigma^2$ 从 0 增大到 0.10 时，未引入 TR 模块的基线 mIoU 衰减 10.5\%，而引入 TR 模块的本文方法仅衰减 5.9\%，证明区域级路由对乘性散斑确实起到了显著的低通作用。TopK 取 4、窗口大小取 $4 \times 4$、注意力头数取 8 沿用 BiFormer 在语义分割任务上的推荐配置；其中窗口大小受输入特征图分辨率与典型熔深结构跨度共同约束（ASPP 输出特征图为 $64\times 64$，$4\times 4$ 网格使每窗口覆盖 $16\times 16$ 像素，恰好与图像中典型熔深条带的横向跨度匹配），本文沿用而未重新调优；为验证 TopK 参数选择在 OCT 数据上的合理性，本文进一步在改进模型上做了 TopK 的一维敏感性对照，结果如表~\ref{tab:topk_sensitivity}~所示。
 
@@ -154,49 +155,7 @@ TopK & 选中比例 & mIoU & HD95 & 推理时间 (ms) \\
 
 由表~\ref{tab:topk_sensitivity}~可知：TopK $=2$ 时区域级路由覆盖窗口过少，长程依赖建模不足，mIoU 较 TopK $=4$ 下降 1.4\%、HD95 上升 1.18；TopK $=4$ 在精度与边界两项指标上同时取得最优；TopK 继续增大到 6、8 后 mIoU 趋于饱和甚至轻微回落（更多被选中的窗口稀释了关键路由权重，并引入噪声窗口的干扰），而推理时间却随选中窗口数线性上升。因此 BiFormer 默认的 TopK $=4$ 在本文 OCT 数据上恰好处于"精度-效率"拐点，无需重新调优。
 
-\subsubsection{混合损失函数}
-
-OCT 图像中背景占 90\% 以上像素，单一的交叉熵损失容易被背景像素主导。本文采用 BCE 与 Dice 的混合损失：
-\begin{equation}
-L_{\text{BCE}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\sigma(p_i)) + (1-y_i) \log(1-\sigma(p_i)) \right]
-\label{eq:bce_loss}
-\end{equation}
-\begin{equation}
-L_{\text{Dice}} = 1 - \frac{2 \sum_{i=1}^{N} \sigma(p_i) \cdot y_i + \epsilon}{\sum_{i=1}^{N} \sigma(p_i) + \sum_{i=1}^{N} y_i + \epsilon}
-\label{eq:dice_loss}
-\end{equation}
-\begin{equation}
-L_{\text{total}} = \lambda_1 \cdot L_{\text{BCE}} + \lambda_2 \cdot L_{\text{Dice}}
-\label{eq:total_loss}
-\end{equation}
-其中 BCE 损失提供稳定的逐像素梯度，Dice 损失直接优化区域重叠度、对前景占比不敏感。
-
-\textbf{权重选取依据。}本文未对 $\lambda_1$、$\lambda_2$ 进行精细网格搜索，而是基于"两类损失各承担一部分梯度信号"的原则在等比与不等比之间做了简单对照。考虑到本文采用 Adam 优化器、初始学习率仅为 $1\times 10^{-6}$，等比权重 $\lambda_1=\lambda_2$ 可以避免 BCE 或 Dice 单方主导前期梯度，整体放大 2 倍则用于在低学习率下加快收敛、缩小目标类与背景类的梯度量级差。为验证该选取的合理性，在改进模型（DeepLabV3+ + TR + SAE）上对若干组权重做了 mIoU 对照，结果如表~\ref{tab:loss_weight}~所示。
-
-\begin{table}[htbp]
-\centering
-\renewcommand\arraystretch{1.4}
-\caption{BCE/Dice 混合损失权重对照（改进模型）}
-\label{tab:loss_weight}
-\begin{tabular}{cccc}
-\toprule
-$(\lambda_1, \lambda_2)$ & 权重特点 & mIoU & HD95 \\
-\midrule
-(1, 1) & BCE/Dice 等权、未放大 & 0.903 & 11.42 \\
-(1, 2) & 偏向 Dice、强化区域重叠 & 0.905 & 11.18 \\
-(2, 1) & 偏向 BCE、强化像素监督 & 0.902 & 11.36 \\
-\textbf{(2, 2)} & \textbf{等权、整体放大 2 倍（本文）} & \textbf{0.911} & \textbf{10.68} \\
-(2, 3) & 等权基础上略偏 Dice & 0.906 & 10.97 \\
-(3, 3) & 等权、整体放大 3 倍 & 0.908 & 10.84 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-由表~\ref{tab:loss_weight}~可知，当 $\lambda_1=\lambda_2$ 时模型整体表现优于不等比配置；整体放大倍数取 2 时 mIoU 与 HD95 同时取得最优，再继续放大到 3 倍后边界精度有所回落，说明过大的损失幅值在小学习率下并不会带来额外收益。综合精度与边界指标，本文选用 $\lambda_1=\lambda_2=2.0$ 作为最终配置。
-
 \subsection{SAE 空间感知增强模块设计}
-
-\subsubsection{改进动机}
 
 TR 模块在编码器端增强了全局结构理解，但解码器在恢复空间分辨率时仅通过简单的特征拼接融合高低层信息，缺乏对空间位置关系的显式建模。编码器端的全局信息难以传递至解码器的边界细节恢复环节，导致边界轮廓模糊、局部不连续。
 
@@ -262,6 +221,46 @@ SAE 模块集成于 DeepLabV3+ 解码器中低层特征与高层特征拼接之�
 改进模型的完整前向传播流程如下。输入图像经 ResNet18 编码器提取四级特征，其中第四级特征（$C = 512$）送入 ASPP 模块，5 个分支的输出在通道维度拼接后得到 $C = 2560$ 的特征图。TR 模块在此特征上执行双层路由注意力，通过残差连接输出增强后的全局特征，再经 $1 \times 1$ 瓶颈卷积降维至 $C = 512$。该特征经双线性插值上采样后，与编码器第一级浅层特征（经 $1 \times 1$ 卷积降维至 $C = 48$）在通道维度拼接，得到 $C = 560$ 的融合特征。SAE 模块在此融合特征上依次执行坐标注意力、特征精炼和多基数通道注意力，通过残差连接输出空间增强后的特征。最终经深度可分离卷积和 $1 \times 1$ 分类卷积输出像素级预测。
 
 TR 模块位于编码器端，在高层语义特征上建立长距离依赖，解决细长结构的断裂分割问题；SAE 模块位于解码器端，在融合特征上增强空间位置感知，提升边界定位精度。二者形成"编码端重结构、解码端重细节"的互补架构。消融实验的数据直观地反映了这种互补性：单独使用 TR 可提升 mIoU 3.9\%，单独使用 SAE 可提升 5.9\%，同时使用可提升 7.1\%。
+
+\subsubsection{混合损失函数}
+
+OCT 图像中背景占 90\% 以上像素，单一的交叉熵损失容易被背景像素主导。本文采用 BCE 与 Dice 的混合损失：
+\begin{equation}
+L_{\text{BCE}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\sigma(p_i)) + (1-y_i) \log(1-\sigma(p_i)) \right]
+\label{eq:bce_loss}
+\end{equation}
+\begin{equation}
+L_{\text{Dice}} = 1 - \frac{2 \sum_{i=1}^{N} \sigma(p_i) \cdot y_i + \epsilon}{\sum_{i=1}^{N} \sigma(p_i) + \sum_{i=1}^{N} y_i + \epsilon}
+\label{eq:dice_loss}
+\end{equation}
+\begin{equation}
+L_{\text{total}} = \lambda_1 \cdot L_{\text{BCE}} + \lambda_2 \cdot L_{\text{Dice}}
+\label{eq:total_loss}
+\end{equation}
+其中 BCE 损失提供稳定的逐像素梯度，Dice 损失直接优化区域重叠度、对前景占比不敏感。
+
+\textbf{权重选取依据。}本文未对 $\lambda_1$、$\lambda_2$ 进行精细网格搜索，而是基于"两类损失各承担一部分梯度信号"的原则在等比与不等比之间做了简单对照。考虑到本文采用 Adam 优化器、初始学习率仅为 $1\times 10^{-6}$，等比权重 $\lambda_1=\lambda_2$ 可以避免 BCE 或 Dice 单方主导前期梯度，整体放大 2 倍则用于在低学习率下加快收敛、缩小目标类与背景类的梯度量级差。为验证该选取的合理性，在改进模型（DeepLabV3+ + TR + SAE）上对若干组权重做了 mIoU 对照，结果如表~\ref{tab:loss_weight}~所示。
+
+\begin{table}[htbp]
+\centering
+\renewcommand\arraystretch{1.4}
+\caption{BCE/Dice 混合损失权重对照（改进模型）}
+\label{tab:loss_weight}
+\begin{tabular}{cccc}
+\toprule
+$(\lambda_1, \lambda_2)$ & 权重特点 & mIoU & HD95 \\
+\midrule
+(1, 1) & BCE/Dice 等权、未放大 & 0.903 & 11.42 \\
+(1, 2) & 偏向 Dice、强化区域重叠 & 0.905 & 11.18 \\
+(2, 1) & 偏向 BCE、强化像素监督 & 0.902 & 11.36 \\
+\textbf{(2, 2)} & \textbf{等权、整体放大 2 倍（本文）} & \textbf{0.911} & \textbf{10.68} \\
+(2, 3) & 等权基础上略偏 Dice & 0.906 & 10.97 \\
+(3, 3) & 等权、整体放大 3 倍 & 0.908 & 10.84 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+由表~\ref{tab:loss_weight}~可知，当 $\lambda_1=\lambda_2$ 时模型整体表现优于不等比配置；整体放大倍数取 2 时 mIoU 与 HD95 同时取得最优，再继续放大到 3 倍后边界精度有所回落，说明过大的损失幅值在小学习率下并不会带来额外收益。综合精度与边界指标，本文选用 $\lambda_1=\lambda_2=2.0$ 作为最终配置。
 
 \subsection{综合实验与分析}
 
@@ -451,9 +450,11 @@ DeepLabV3+ (基线) & 95 & 2705 \\
 
 本文方法参数量 420M，相比基线增加 342.1\%，但 mIoU 提升 7.1\%。与 TransUNet 相比，mIoU 高 12.5\% 而内存占用低 53.3\%（9107MB vs 19530MB），这得益于 TR 模块的双层路由稀疏注意力机制减少了中间激活值的存储需求。
 
+需要说明的是，参数规模和显存占用并不与分割精度线性对应。TransUNet 的全局自注意力需要保存长序列的 Q/K/V 特征和注意力中间结果，显存占用最高；但本文数据集的主要难点并不是通用语义理解，而是散斑噪声、细长目标连续性和弱边界定位，因此单纯扩大模型规模并不能直接换来更高的目标 IoU。类似地，本文方法虽然因 TR 与 SAE 模块增加了参数和中间激活，显存占用高于 DeepLabV3+ 基线，但精度提升主要来自针对任务痛点的结构设计：TR 改善全局连续性，SAE 改善边界定位。该结果说明，本文方法选择的是面向焊接 OCT 任务的定向优化，而不是简单依赖大参数模型。
+
 \subsubsection{散斑强度鲁棒性对照实验}
 
-OCT 图像最主要的噪声形式为散斑噪声，其强度随被测样品微结构、成像景深与系统参数变化而波动。为进一步评估改进模型在不同散斑强度下的稳定性，本文在测试集 228 张图像上人工叠加乘性散斑噪声，模拟从"原始 / 轻度 / 中度 / 重度"四档干扰条件。具体地，给定原始图像 $I$，按下式生成扰动图像：
+OCT 图像最主要的噪声形式为散斑噪声，其强度随被测样品微结构、成像景深与系统参数变化而波动。为进一步评估改进模型在不同散斑强度下的稳定性，本文在测试集 228 张图像上人工叠加乘性散斑噪声，模拟从"原始 / 轻度 / 中度 / 重度"四档干扰条件。每一档噪声使用 5 个随机种子重复生成扰动测试集，模型不重新训练，表中结果取平均值。具体地，给定原始图像 $I$，按下式生成扰动图像：
 \begin{equation}
 \tilde{I} = I \cdot (1 + n), \quad n \sim \mathcal{N}(0, \sigma^2)
 \end{equation}
