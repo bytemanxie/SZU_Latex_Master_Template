@@ -240,7 +240,7 @@ FPN 通过构建特征金字塔，在不同尺度上提取特征，并通过自�
 
 近年来，Transformer 架构如 Swin Transformer\upcite{liu2021swin}和 SegFormer\upcite{xie2021segformer}也被引入语义分割任务，通过自注意力机制增强长距离依赖建模能力。
 
-TransUNet 是一种将 Transformer 与 U-Net 结合的混合架构，由 Chen 等人于 2021 年提出\upcite{TransUNet2021}。TransUNet 的核心思想是利用 Transformer 的全局建模能力弥补纯卷积网络在长距离依赖捕获方面的不足。具体而言，TransUNet 首先使用 CNN（如 ResNet）提取图像的局部特征，然后将特征图划分为固定大小的图像块（Patch），通过线性投影将每个图像块嵌入为特征向量，输入 Transformer 编码器进行全局关系建模。Transformer 编码器输出的特征再通过级联上采样与 CNN 特征融合，最终由 U-Net 风格的解码器生成分割结果。
+TransUNet 是一种将 Transformer 与 U-Net 结合的混合架构，Chen 等人在 2024 年的期刊论文中对其 2D/3D 框架进行了系统化扩展\upcite{TransUNet2021}。TransUNet 的核心思想是利用 Transformer 的全局建模能力弥补纯卷积网络在长距离依赖捕获方面的不足。具体而言，TransUNet 首先使用 CNN（如 ResNet）提取图像的局部特征，然后将特征图划分为固定大小的图像块（Patch），通过线性投影将每个图像块嵌入为特征向量，输入 Transformer 编码器进行全局关系建模。Transformer 编码器输出的特征再通过级联上采样与 CNN 特征融合，最终由 U-Net 风格的解码器生成分割结果。
 
 TransUNet 的优势在于能够同时利用 CNN 的局部特征提取能力和 Transformer 的全局上下文建模能力，在医学图像分割等需要精确边界定位和全局语义理解的任务中表现出色。然而，Transformer 架构的自注意力机制计算复杂度为 $O(n^2)$（$n$ 为序列长度），导致 TransUNet 的参数量和内存占用较大。在本文的实验对比中，TransUNet 作为代表性的 Transformer 分割方法被纳入性能评估。
 
