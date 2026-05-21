@@ -1,0 +1,24 @@
+【中文摘要】
+
+激光焊接过程中，熔深直接影响接头的承载能力，是焊接质量评价的核心指标。光学相干层析成像（Optical Coherence Tomography, OCT）通过主动测量光获取匙孔底部反射信息，可实现熔深的非接触在线测量。然而，OCT 在激光焊接场景的应用仍面临两方面问题：一是从干涉谱到深度图像的后处理计算量大，CPU 串行处理难以匹配高速 A 扫采集速率；二是重建后的图像受散斑噪声、边界模糊和目标与背景对比度不足等因素影响，现有分割方法难以准确提取匙孔区域。本文分别从 GPU 加速重建和语义分割模型改进两个方面开展研究，主要工作如下：
+
+（1）设计基于 CUDA 的 OCT 图像加速重建流水线。将 SD-OCT 系统的 8 个后处理步骤（类型转换、光谱整形、背景扣除、K 线性化、色差补偿、FFT、幅值提取、帧合并）移植到 GPU 上并行执行，设计了对应的 CUDA 核函数。其中，K 线性化步骤需要对每条 A 扫求解一个 2048 阶三对角方程组，传统 Thomas 算法是串行的，在 GPU 上仅有 1 个线程参与计算。本文引入并行循环还原（PCR）算法替代 Thomas 算法，将求解过程分解为 11 层并行迭代，使所有线程同时参与运算。流水线数据全程驻留 GPU 端，综合利用常量内存、共享内存和只读缓存。针对焊接闭环控制场景下细粒度 B 扫的固定开销问题，进一步引入统一内存和 CUDA 事件进行优化。
+
+（2）提出基于双重注意力机制的改进 DeepLabV3+ 语义分割方法。以 DeepLabV3+ 编码器—解码器架构为基线，在编码器端 ASPP 输出后加入 TR（Transformer Routing）模块，通过区域级路由筛选 Top-K 个相关区域并在其内部进行 token 级注意力计算，在可控计算开销下建立长距离依赖关系，改善细长匙孔结构的断裂分割问题。在解码器端加入 SAE（Spatial Awareness Enhancement）模块，采用"坐标注意力—特征精炼—通道注意力"级联结构，沿水平和垂直方向分别编码空间位置信息，提升边界处的分割精度。训练阶段采用交叉熵与 Dice 加权组合损失以缓解类别不平衡。
+
+在自建焊接 OCT 数据集（912 张训练图像、228 张测试图像）上的实验结果表明，改进模型 mIoU 达到 0.911，较基线 DeepLabV3+ 提升 7.1%；目标类别 IoU 从 0.710 提升至 0.826（+16.3%）；边界精度指标 HD95 从 12.22 降至 10.68（-12.6%）。消融实验中，单独加入 SAE 模块可提升 mIoU 5.9%，单独加入 TR 模块可提升 3.9%，两者联合使用的效果优于任一模块单独使用。与 UNet、TransUNet 等方法相比，本文方法 mIoU 均为最高，同时内存占用较 TransUNet 减少 53.3%。
+
+关键词：激光焊接；OCT图像；CUDA并行计算；语义分割；注意力机制
+
+
+【英文摘要】
+
+Penetration depth directly affects the load-bearing capacity of welded joints and is a core indicator for evaluating laser welding quality. Optical Coherence Tomography (OCT) obtains reflection information from the keyhole bottom through active measurement light, enabling non-contact online measurement of penetration depth. However, applying OCT in laser welding scenarios still faces two problems: the post-processing from interference spectra to depth images is computationally intensive, and serial CPU execution cannot match the high-speed A-scan acquisition rate; moreover, the reconstructed images are affected by speckle noise, blurred boundaries, and insufficient target-background contrast, making it difficult for existing segmentation methods to accurately extract the keyhole region. This thesis addresses these two problems from GPU-accelerated reconstruction and segmentation model improvement, respectively. The main contributions are as follows:
+
+(1) A CUDA-based accelerated reconstruction pipeline for OCT images is designed. All eight post-processing steps of the SD-OCT system (type conversion, spectral shaping, background subtraction, K-linearization, dispersion compensation, FFT, magnitude extraction, and frame averaging) are ported to the GPU with corresponding CUDA kernels. In the K-linearization step, each A-scan requires solving a 2048-order tridiagonal system, and the conventional Thomas algorithm is serial, with only one thread performing computation on the GPU. The Parallel Cyclic Reduction (PCR) algorithm is introduced to replace the Thomas algorithm, decomposing the solve into 11 parallel iterations in which all threads participate simultaneously. Pipeline data reside on the GPU throughout, utilizing constant memory, shared memory, and read-only cache. For fine-grained B-scan scenarios in welding closed-loop control, unified memory and CUDA events are further introduced to reduce fixed overhead.
+
+(2) An improved DeepLabV3+ semantic segmentation method based on dual attention mechanisms is proposed. Using the DeepLabV3+ encoder-decoder architecture as the baseline, a TR (Transformer Routing) module is added after the ASPP output in the encoder, which performs region-level routing to select the Top-K relevant regions and then computes token-level attention within them, establishing long-range dependencies under controllable computational cost to address the fragmented segmentation of elongated keyhole structures. An SAE (Spatial Awareness Enhancement) module is added in the decoder, adopting a cascaded structure of "coordinate attention-feature refinement-channel attention" that encodes spatial position information along horizontal and vertical directions separately to improve boundary segmentation precision. A weighted combination of cross-entropy and Dice loss is used during training to mitigate class imbalance.
+
+Experiments on a self-built welding OCT dataset (912 training images, 228 test images) show that the improved model achieves an mIoU of 0.911, a 7.1% improvement over the baseline DeepLabV3+. The target class IoU increases from 0.710 to 0.826 (+16.3%), and the boundary precision metric HD95 decreases from 12.22 to 10.68 (-12.6%). Ablation experiments show that adding the SAE module alone improves mIoU by 5.9%, adding the TR module alone by 3.9%, and their joint usage outperforms either module used independently. Compared with UNet and TransUNet, the proposed method achieves the highest mIoU while reducing memory consumption by 53.3% relative to TransUNet.
+
+Keywords: Laser Welding; OCT Image; CUDA Parallel Computing; Semantic Segmentation; Attention Mechanism
